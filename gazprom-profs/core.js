@@ -1,11 +1,11 @@
 // Страница выбора идей (корпоратив Газпром ПХГ, профсоюз, 29.10.2026, 47 гостей). Данные: data/data-program.js (IDEAS, HOURS, EXITS, TIMING),
-// data/titles.js (TITLES — варианты названия вечера), data/prizes.js (PRIZES — призы на 5 000 ₽).
+// data/titles.js (TITLES — варианты названия вечера), data/prizes.js (PRIZES — идеи призов; цены в данных есть, на странице не выводятся).
 // Логика и имена перенесены из рабочей страницы site/gazprom: IDEAS, KEY, st, paint, summary, save, ENDPOINT, id send / sheet / push / copy / save.
 // Отметки игр, закреплённое название и призы хранятся в браузере, у каждого свой ключ. Наружу уходит только то, что организатор отправил кнопкой «Отправить ведущему».
 // Ключи адреса: ?demo=1 (примерные отметки для кадров, в память не пишутся) · ?reset=1 (очистить сохранённый выбор, название и призы).
 (function () {
   "use strict";
-  var KEY = "gazprom-evening-2026-10-29", TKEY = KEY + "-title", PKEY = KEY + "-prizes";
+  var KEY = "gazprom-evening-2026-10-29", TKEY = KEY + "-title", PKEY = KEY + "-prizes", PFKEY = KEY + "-prizes-fixed";
   var ENDPOINT = "https://script.google.com/macros/s/AKfycbwNkv6WGTWhvZ4d1KlBdtSTpKG4gTEg9cc9Y7oAeLlBt57euDRGjrtFSZsq6Its90qmqA/exec";
   var qs = new URLSearchParams(location.search);
   var LAB = { y: "Хотим", m: "Можно", n: "Не наше" };
@@ -54,8 +54,6 @@
   function capHead() { return "Вечер " + HOURS + " " + plural(HOURS, "час", "часа", "часов") + " ≈ " + SLOTS + " " + plural(SLOTS, "игра", "игры", "игр") + ": выбрано "; }
   function overText(n) { return "плюс " + (n - SLOTS) + " под чертой: обсудим до финального сценария"; }
   function capLine(n) { return CAPS ? capHead() + n + (n > SLOTS ? ". " + overText(n).charAt(0).toUpperCase() + overText(n).slice(1) : "") + "." : chosenText(n) + "."; }
-  function fmtN(n) { return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, " "); }
-  function rub(n) { return fmtN(n) + " ₽"; }
   function lc(s) { return s.charAt(0).toLowerCase() + s.slice(1); }
   // примерный порядок: от спокойных к динамичным (поле pace), при равенстве — как в списке
   function byPace(a) { return a.map(function (i, n) { return [i, n]; }).sort(function (p, q) { return ((p[0].pace || 99) - (q[0].pace || 99)) || (p[1] - q[1]); }).map(function (p) { return p[0]; }); }
@@ -83,14 +81,14 @@
   var tIdx = TITLES.indexOf(title);
   function titleText() { return title + (tFixed ? "" : " (предварительное)"); }
 
-  // призы: свой ключ, в памяти — список id; неизвестные id отбрасываем
-  var PRIZES = (window.PRIZES || []).filter(function (p) { return p && p.id && p.title; }), BUDGET = +window.PRIZE_BUDGET || 5000;
+  // призы: свой ключ, в памяти — список id; неизвестные id отбрасываем. Второй ключ (PFKEY) хранит «призы зафиксированы»; без выбранных призов фиксация не читается.
+  // Цены в данных (поле price) нигде не выводятся.
+  var PRIZES = (window.PRIZES || []).filter(function (p) { return p && p.id && p.title; });
   var pzKnown = dict(PRIZES.map(function (p) { return p.id; })), pz = Object.create(null);
   try { var praw = JSON.parse(load(PKEY) || "[]"); if (Array.isArray(praw)) praw.forEach(function (id) { if (typeof id === "string" && pzKnown[id]) pz[id] = 1; }); } catch (e) { /* повреждённую память призов не читаем */ }
-  var PZSET = (window.PRIZE_SET || []).filter(function (id) { return pzKnown[id]; });
+  var pzFixed = load(PFKEY) === "1" && Object.keys(pz).length > 0;
   function savePz() { keep(PKEY, JSON.stringify(Object.keys(pz))); }
   function pzChosen() { return PRIZES.filter(function (p) { return pz[p.id]; }); }
-  function pzTotal(a) { return a.reduce(function (s, p) { return s + (+p.price || 0); }, 0); }
 
   // ——— группы ———
   var groups = [];
@@ -151,48 +149,52 @@
   });
   var navIds = groups.map(function (g) { return g.slug; });
 
-  // ——— призы: отдельный раздел внизу, вручаем столу без выхода на сцену ———
-  var pzCard = {}, pzSum = null, pzFill = null, pzBar = null, pzSetBtn = null;
+  // ——— призы: отдельный раздел внизу, вручаем столу без выхода на сцену; кнопка «Зафиксировать призы» закрепляет выбор ———
+  var pzCard = {}, pzSt = null, pzStT = null, pzStI = null, pzFix = null, pzChg = null;
   function prizeFor(p) {
     var id = "pz-" + p.id;
-    var box = el("input", { type: "checkbox", class: "pzc", id: id, "aria-labelledby": id + "-t " + id + "-p", "aria-describedby": id + "-d" });
-    box.addEventListener("change", function () { if (box.checked) pz[p.id] = 1; else delete pz[p.id]; savePz(); paintPz(); });
+    var box = el("input", { type: "checkbox", class: "pzc", id: id, "aria-labelledby": id + "-t", "aria-describedby": id + "-d" });
+    box.addEventListener("change", function () {
+      if (pzFixed) { box.checked = !!pz[p.id]; return; }
+      if (box.checked) pz[p.id] = 1; else delete pz[p.id];
+      savePz(); paintPz();
+    });
     var icon = function () { return el("span", { class: "ico", "aria-hidden": "true", html: PZICON[p.icon] || PZICON.cup }); };
     // место под фото: если в данных есть img, показываем его с alt; не загрузилось или нет — значок
     var art = el("span", { class: "pzart" }, p.img ? el("img", { src: p.img, alt: p.alt || p.title, loading: "lazy", decoding: "async", width: 144, height: 144, onerror: function () { this.replaceWith(icon()); } }) : icon());
     var li = el("li", { class: "pz" }, el("label", { for: id }, box, art,
       el("span", { class: "pzt" },
         el("b", { id: id + "-t" }, p.title),
-        el("span", { class: "pzd", id: id + "-d" }, p.desc),
-        el("span", { class: "pzp", id: id + "-p" }, "около ", el("span", { class: "num" }, fmtN(p.price)), " ₽"))));
+        el("span", { class: "pzd", id: id + "-d" }, p.desc))));
     pzCard[p.id] = li;
     return li;
   }
   if (PRIZES.length) {
-    pzSum = el("p", { class: "pzsum", role: "status", "aria-live": "polite" });
-    pzFill = el("i");
-    pzBar = el("div", { class: "pzbar" }, pzSum, el("div", { class: "pzstrip", "aria-hidden": "true" }, pzFill));
-    if (PZSET.length) {
-      var exA = PRIZES.filter(function (p) { return PZSET.indexOf(p.id) >= 0; }), exSum = pzTotal(exA);
-      pzSetBtn = el("button", { type: "button", class: "pzset", "aria-pressed": "false" }, "Отметить пример на " + rub(exSum));
-      pzSetBtn.addEventListener("click", function () {
-        var before = Object.keys(pz);
-        pz = Object.create(null); PZSET.forEach(function (id) { pz[id] = 1; }); savePz(); paintPz();
-        notify("Отмечен пример призов на " + rub(exSum), function () { pz = Object.create(null); before.forEach(function (id) { pz[id] = 1; }); savePz(); paintPz(); });
-      });
-      pzBar.append(el("p", { class: "pzex" }, "Пример в пределах бюджета: " + exA.map(function (p) { return lc(p.title); }).join(", ") + "."), pzSetBtn);
-    }
+    pzStI = el("span", { class: "ico", "aria-hidden": "true", html: ICON.y, hidden: true });
+    pzStT = el("span");
+    pzSt = el("p", { class: "pzst", role: "status", "aria-live": "polite" }, pzStI, pzStT);
+    pzFix = el("button", { type: "button", class: "tfixb", id: "pzfix" }, "Зафиксировать призы");
+    pzChg = el("button", { type: "button", class: "tchg", id: "pzchg", hidden: true }, "Изменить");
+    pzFix.addEventListener("click", function () {
+      if (pzFixed) return;
+      if (!pzChosen().length) { notify("Отметьте хотя бы один приз, потом зафиксируйте"); return; }
+      pzFixed = true; keep(PFKEY, "1"); paintPz(); pzChg.focus();
+    });
+    pzChg.addEventListener("click", function () {
+      pzFixed = false; drop(PFKEY); paintPz(); pzFix.focus();
+      say("Призы снова можно менять");
+    });
     var tabP = el("button", { class: "tab", type: "button", "aria-label": "Призы", onclick: function () { go("s-prizes"); } }, "Призы");
     tabEl.prizes = tabP; tabsBox.append(tabP); navIds.push("prizes");
     main.append(el("section", { class: "stage prizes", id: "s-prizes", "data-id": "prizes", style: "--h:198", "aria-labelledby": "h-prizes" },
       el("div", { class: "stage-in" },
         el("header", { class: "stage-head" },
           el("p", { class: "when" }, "После игр · награждаем столы"),
-          el("h2", { id: "h-prizes" }, "Чем наградить победителей", el("span", { class: "sr" }, " ("), el("span", { class: "h2b" }, "бюджет " + rub(BUDGET)), el("span", { class: "sr" }, ")")),
-          el("p", { class: "lead" }, "Организаторы просили обойтись без выхода на сцену, поэтому приз получает весь стол: ведущий сам приносит его к команде. Отметьте идеи, которые нравятся. Это только предложение: ничего не покупаем, пока вы не решите.")),
-        pzBar,
+          el("h2", { id: "h-prizes" }, "Чем наградить победителей"),
+          el("p", { class: "lead" }, "Победителей награждает стол, не отдельный человек. Отметьте, что вам нравится.")),
         el("ul", { class: "pzgrid", "aria-label": "Идеи призов" }, PRIZES.map(prizeFor)),
-        el("p", { class: "pznote" }, "Цены примерные, точную сумму сверим перед покупкой. Выбранные призы попадут в «Итог» вместе с играми."))));
+        el("div", { class: "pzfoot" }, pzSt, pzFix, pzChg),
+        el("p", { class: "pznote" }, "Выбранные призы попадут в «Итог» вместе с играми."))));
   }
   // ——— подготовка к вечеру: обратный отсчёт до срока выбора и лента «Что дальше» (data/prep.js) ———
   var DEADLINE = window.DEADLINE ? Date.parse(window.DEADLINE) : NaN, NEXT = (window.NEXT_STEPS || []).filter(function (s) { return typeof s === "string" && s.trim(); });
@@ -351,25 +353,26 @@
     });
     if (sheetOn) fillSheet();
   }
+  // призы: карточки с чекбоксами; после «Зафиксировать призы» чекбоксы заблокированы, внизу «Призы выбраны» и «Изменить»
   function paintPz() {
-    if (!pzSum) return;
-    var a = pzChosen(), sum = pzTotal(a), left = BUDGET - sum;
-    var r = function (n) { return '<b class="num">' + fmtN(n) + "</b>&nbsp;₽"; };
-    PRIZES.forEach(function (p) { var on = !!pz[p.id], li = pzCard[p.id]; li.classList.toggle("on", on); li.querySelector("input").checked = on; });
-    pzSum.innerHTML = a.length
-      ? "Отмечено " + a.length + " " + plural(a.length, "приз", "приза", "призов") + " примерно на " + r(sum) + " из " + r(BUDGET)
-        + "<small>" + (left < 0 ? "Это на " + r(-left) + " больше бюджета: уберите что-нибудь" : left ? "Остаётся около " + r(left) : "Ровно в бюджет") + "</small>"
-      : "Пока ничего не отмечено<small>Бюджет " + r(BUDGET) + ", отметьте идеи ниже</small>";
-    pzBar.classList.toggle("over", left < 0);
-    pzFill.style.width = Math.min(1, sum / BUDGET) * 100 + "%";
-    if (pzSetBtn) pzSetBtn.setAttribute("aria-pressed", String(a.length === PZSET.length && PZSET.every(function (id) { return pz[id]; })));
+    if (!pzSt) return;
+    var a = pzChosen();
+    PRIZES.forEach(function (p) {
+      var on = !!pz[p.id], li = pzCard[p.id], box = li.querySelector("input");
+      li.classList.toggle("on", on); li.classList.toggle("locked", pzFixed);
+      box.checked = on; box.disabled = pzFixed;
+    });
+    pzStT.textContent = pzFixed ? "Призы выбраны" : a.length ? "Отмечено: " + a.length + " " + plural(a.length, "приз", "приза", "призов") : "Пока ничего не отмечено";
+    pzStI.hidden = !pzFixed; pzSt.classList.toggle("done", pzFixed);
+    pzFix.hidden = pzFixed; pzChg.hidden = !pzFixed;
+    pzFix.setAttribute("aria-disabled", String(!a.length));
     if (sheetOn) fillSheet();
   }
 
   // ——— текст выбора (он же уходит ведущему) ———
   function prizeLine() {
     var a = pzChosen();
-    return a.length ? "Призы: выбрано " + a.map(function (p) { return lc(p.title); }).join(", ") + " (около " + rub(pzTotal(a)) + " из " + rub(BUDGET) + ")." : "Призы: пока не выбраны.";
+    return a.length ? "Призы: " + a.map(function (p) { return lc(p.title); }).join(", ") + (pzFixed ? "." : " (предварительно).") : "Призы: пока не выбраны.";
   }
   function summary() {
     var L = ["Игры для вечера: Газпром ПХГ, профсоюз, 29.10.2026, 47 человек.", "Название вечера: " + titleText(), ""];
@@ -418,8 +421,8 @@
     var pa = pzChosen();
     $("xtitle").textContent = titleText();
     $("xprizerow").hidden = !PRIZES.length; $("topz").hidden = !PRIZES.length;
-    $("xprize").textContent = pa.length ? pa.map(function (p) { return lc(p.title); }).join(", ") + " · около " + rub(pzTotal(pa)) : "пока не выбраны";
-    $("topz").textContent = pa.length ? "Изменить призы" : "Выбрать призы";
+    $("xprize").textContent = pa.length ? pa.map(function (p) { return lc(p.title); }).join(", ") + (pzFixed ? "" : " (предварительно)") : "пока не выбраны";
+    $("topz").textContent = pzFixed ? "Изменить призы" : pa.length ? "Закрепить призы" : "Выбрать призы";
     $("xpickrow").hidden = !PICKS.length;
     $("xpick").textContent = "выбрано " + PICKS.filter(function (i) { return st[i.id] === "y"; }).length + " из " + PICKS.length;
     var y = wanted(), ol = $("order"), bl = $("below"), cut = CAPS ? SLOTS : y.length;
@@ -467,9 +470,10 @@
     else if (!e.shiftKey && (a === f[f.length - 1] || !sheet.contains(a))) { e.preventDefault(); f[0].focus(); }
   });
   document.addEventListener("focusin", function (e) { if (sheetOn && !sheet.contains(e.target)) { var f = focusables(); (f[0] || sheet).focus({ preventScroll: true }); } });
+  // «Выбрать / Закрепить / Изменить призы» ведёт к блоку призов: фокус на первом чекбоксе, а при закреплённом выборе — на «Изменить»
   $("topz").onclick = function () {
     closeSheet(); go("s-prizes");
-    var first = document.querySelector("#s-prizes .pzc"); if (first) first.focus({ preventScroll: true });
+    var first = pzFixed ? $("pzchg") : document.querySelector("#s-prizes .pzc"); if (first) first.focus({ preventScroll: true });
   };
 
   $("copy").onclick = function () {
@@ -497,7 +501,7 @@
     var doc = [], mk = function (t, a, ord) { if (a.length) doc.push({ section: t, items: a.map(function (i, k) { return { q: i.title, a: ord ? (k < cut ? "№ " + (k + 1) + " в порядке вечера" : "под чертой: обсудим до финального сценария") : t }; }) }); };
     doc.push({ section: "Название вечера", items: [{ q: title, a: tFixed ? "Название вечера" : "Название вечера (предварительное)" }] });
     mk("Хотим", y, true); mk("Можно", m); mk("Не наше", n);
-    var pa = pzChosen(); if (pa.length) doc.push({ section: "Призы", items: pa.map(function (p) { return { q: p.title, a: "около " + rub(p.price) }; }) });
+    var pa = pzChosen(); if (pa.length) doc.push({ section: "Призы", items: pa.map(function (p) { return { q: p.title, a: pzFixed ? "Приз выбран" : "Приз выбран (предварительно)" }; }) });
     var payload = { app: "wedding-constructor", kind: "program", couple: "gazprom-phg-29-10", names: { b: "Газпром ПХГ, профсоюз, 29.10", g: "" }, answers: st, doc: doc, text: summary() };
     var sig = JSON.stringify(st);
     setSend("busy", "Отправляю ведущему. Это занимает несколько секунд.");
