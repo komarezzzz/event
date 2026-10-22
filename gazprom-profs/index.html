@@ -8,7 +8,7 @@
 <!-- Название по умолчанию «Кубок столов» (решение Григория 23.10). Остальные варианты — data/titles.js, листаются стрелками в первом экране;
      выбранное подставляется в title, шапку и h1 скриптом core.js, кнопка «Зафиксировать» закрепляет его. -->
 <title>Кубок столов · выбор игр 29.10</title>
-<link rel="stylesheet" href="core.css?v=6">
+<link rel="stylesheet" href="core.css?v=7">
 <style>
 /* «Жидкое стекло» в голубой гамме. Стекло только в навигации: шапка с группами, нижняя панель «Итог», шторка отправки (glass.css).
    Тексты и карточки лежат на матовой непрозрачной подложке. Шрифты локальные (папка fonts): Finlandica — весь текст, Martian Mono — только цифры.
@@ -157,6 +157,23 @@ main { max-width: 1120px; margin: 0 auto; padding: 0 var(--pad); outline: 0; }
 .seg button.pop .ico { animation: popi .45s cubic-bezier(.3,1.8,.5,1); }
 @keyframes popi { 0% { transform: scale(.3); } 100% { transform: scale(1); } }
 
+/* комментарий к игре: пилюля «+ Комментарий» раскрывает поле; на карточке матовая подложка, без стекла; шрифт поля 17 px, чтобы iOS не приближал страницу */
+.cm { display: grid; gap: 10px; justify-items: start; min-width: 0; }
+.cmb { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 18px; border: 2px solid var(--blue); border-radius: 999px; background: #fff; color: var(--blue-ink); font: 750 16px/1.1 var(--font); transition: background-color .2s, transform .2s cubic-bezier(.3,1.5,.5,1); }
+.cmb[data-has="1"] { background: var(--blue-soft); }
+.cmb:active { transform: scale(.97); }
+@media (hover: hover) { .cmb:hover { background: #cfe3f8; } }
+.cmb .ico { display: inline-grid; place-items: center; line-height: 0; }
+.cmb .ico[hidden], .cmb span[hidden] { display: none; }
+.cmprev { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; overflow: hidden; max-width: 100%; margin: 0; font: 500 16px/1.4 var(--font); color: var(--ink-2); white-space: pre-wrap; overflow-wrap: anywhere; }
+.cmbox { display: grid; gap: 6px; width: 100%; }
+.cmprev[hidden], .cmbox[hidden] { display: none; }
+.cmhead { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.cml { font: 650 15px/1.3 var(--font); color: var(--ink-2); }
+.cmcount { flex: none; font: 500 14px/1.2 var(--font); color: var(--ink-2); }
+.cmt { box-sizing: border-box; display: block; width: 100%; min-height: 88px; padding: 10px 12px; border: 1.5px solid var(--ink-3); border-radius: 14px; background: #fff; color: var(--ink); font: 400 17px/1.45 var(--font); resize: vertical; }
+.cmt::placeholder { color: var(--ink-3); opacity: 1; }
+
 /* ——— призы: раздел внизу, карточки-чекбоксы (место под фото: .pzart) и кнопка «Зафиксировать призы»; деньги на странице не показываем ——— */
 .prizes .lead { max-width: 52ch; }
 .pzgrid { list-style: none; display: grid; grid-template-columns: 1fr; gap: 14px; margin: 22px 0 0; padding: 0; }
@@ -245,6 +262,8 @@ main { max-width: 1120px; margin: 0 auto; padding: 0 var(--pad); outline: 0; }
 .dgl { display: inline-flex; align-items: center; gap: 6px; font: 600 14px/1.2 var(--font); color: var(--ink-2); }
 .dgl .ico { display: inline-grid; place-items: center; line-height: 0; color: var(--blue-ink); }
 .dg b { font-size: 22px; line-height: 1.1; color: var(--ink); }
+.dg-c { grid-column: 1 / -1; display: flex; align-items: center; justify-content: space-between; }
+.ocm { display: block; margin-top: 2px; font: 500 15px/1.4 var(--font); color: var(--ink-2); white-space: pre-wrap; overflow-wrap: anywhere; }
 .xtra { margin: 0 0 12px; padding: 12px 14px; border-radius: 16px; background: #fff; box-shadow: inset 0 0 0 1px rgba(15,60,120,.1); }
 .xtra dl { display: grid; gap: 8px; margin: 0; }
 .xtra dl > div { display: grid; grid-template-columns: 150px 1fr; gap: 10px; align-items: baseline; }
@@ -304,7 +323,7 @@ noscript p { margin: 120px var(--pad) 0; padding: 18px; border-radius: 18px; bac
   .stage { background: #f5faff; } .toast { box-shadow: 0 0 0 2px #fff; }
 }
 </style>
-<link rel="stylesheet" href="glass.css?v=6">
+<link rel="stylesheet" href="glass.css?v=7">
 </head>
 <body>
 <svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false"><defs id="lensdefs"></defs></svg>
@@ -397,10 +416,10 @@ noscript p { margin: 120px var(--pad) 0; padding: 18px; border-radius: 18px; bac
   </div>
 </div>
 
-<script src="data/data-program.js?v=6"></script>
-<script src="data/titles.js?v=6"></script>
-<script src="data/prizes.js?v=6"></script>
-<script src="core.js?v=6"></script>
-<script src="glass-ui.js?v=6"></script>
+<script src="data/data-program.js?v=7"></script>
+<script src="data/titles.js?v=7"></script>
+<script src="data/prizes.js?v=7"></script>
+<script src="core.js?v=7"></script>
+<script src="glass-ui.js?v=7"></script>
 </body>
 </html>

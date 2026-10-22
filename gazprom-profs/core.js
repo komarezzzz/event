@@ -5,7 +5,7 @@
 // Ключи адреса: ?demo=1 (примерные отметки для кадров, в память не пишутся) · ?reset=1 (очистить сохранённый выбор, название и призы).
 (function () {
   "use strict";
-  var KEY = "gazprom-evening-2026-10-29", TKEY = KEY + "-title", PKEY = KEY + "-prizes", PFKEY = KEY + "-prizes-fixed";
+  var KEY = "gazprom-evening-2026-10-29", TKEY = KEY + "-title", PKEY = KEY + "-prizes", PFKEY = KEY + "-prizes-fixed", CKEY = KEY + "-comments", CMAX = 400;
   var ENDPOINT = "https://script.google.com/macros/s/AKfycbwNkv6WGTWhvZ4d1KlBdtSTpKG4gTEg9cc9Y7oAeLlBt57euDRGjrtFSZsq6Its90qmqA/exec";
   var qs = new URLSearchParams(location.search);
   var LAB = { y: "Хотим", m: "Можно", n: "Не наше" };
@@ -72,6 +72,27 @@
   function save() { keep(KEY, JSON.stringify(st)); }
   function put(id, v) { if (VAL[v]) st[id] = v; else delete st[id]; }
 
+  // комментарии заказчика к играм: свой ключ (CKEY), объект {id игры: текст ≤ 400}. Читаем только известные игры и строки; пустые и повреждённые значения отбрасываем.
+  // Комментарий не зависит от отметки «Хотим / Можно / Не наше». Выводится только через textContent, переносы строк сохраняются.
+  var cm = Object.create(null);
+  try {
+    var craw = JSON.parse(load(CKEY) || "{}");
+    if (craw && typeof craw === "object" && !Array.isArray(craw)) Object.keys(craw).forEach(function (k) {
+      var v = craw[k]; if (!known[k] || typeof v !== "string") return;
+      v = v.replace(/\r\n?/g, "\n").slice(0, CMAX); if (v.trim()) cm[k] = v;
+    });
+  } catch (e) { cm = Object.create(null); }
+  function saveCm() { if (Object.keys(cm).length) keep(CKEY, JSON.stringify(cm)); else drop(CKEY); }
+  function setCm(id, v) { v = String(v).replace(/\r\n?/g, "\n").slice(0, CMAX); if (v.trim()) cm[id] = v; else delete cm[id]; saveCm(); }
+  function cmText(id) { return cm[id] ? cm[id].trim().slice(0, CMAX) : ""; }
+  function cmCount() { return Object.keys(cm).length; }
+  // строки «Комментарий: …» для текста выбора: первая с подписью, остальные со сдвигом
+  function cmLines(i, pad) { var t = cmText(i.id); return t ? t.split("\n").map(function (s, k) { return pad + (k ? "  " : "Комментарий: ") + s; }) : []; }
+  // тот же комментарий строкой в шторке «Итог» (null, если комментария нет)
+  function cmNode(i) { var t = cmText(i.id); return t ? el("span", { class: "ocm" }, "Комментарий: " + t) : null; }
+  // подпись выбора: отметки и комментарии вместе; по ней шторка понимает, что после отправки что-то изменилось
+  function sigNow() { return JSON.stringify([st, cm]); }
+
   // название вечера: свой ключ хранит только закреплённое название, принимаем его лишь если оно есть в списке TITLES;
   // иначе название предварительное, по умолчанию первое («Кубок столов»)
   var TITLES = (window.TITLES || []).filter(function (t) { return typeof t === "string" && t.trim(); });
@@ -108,6 +129,32 @@
     });
     return seg;
   }
+  // комментарий к игре: пилюля раскрывает поле; текст сохраняется при вводе, кнопка меняется на «Комментарий добавлен ✓»
+  function cmFor(i) {
+    var id = "cm-" + i.id, open = false;
+    var plus = el("span", { "aria-hidden": "true" }, "+"), word = el("span"), ok = el("span", { class: "ico", "aria-hidden": "true", html: ICON.y, hidden: true });
+    var btn = el("button", { type: "button", class: "cmb", "aria-expanded": "false", "aria-controls": id + "-box" }, plus, word, ok, el("span", { class: "sr" }, " к игре «" + i.title + "»"));
+    var prev = el("p", { class: "cmprev", hidden: true });
+    var ta = el("textarea", { id: id, class: "cmt", rows: 3, maxlength: CMAX, autocomplete: "off", placeholder: "Например: у нас на этом столе в команде 6 человек", "aria-describedby": id + "-n" });
+    var count = el("span", { class: "cmcount", id: id + "-n" });
+    var box = el("div", { class: "cmbox", id: id + "-box", hidden: true },
+      el("div", { class: "cmhead" }, el("label", { class: "cml", for: id }, "Ваш комментарий к игре", el("span", { class: "sr" }, " «" + i.title + "»")), count), ta);
+    ta.value = cm[i.id] || "";
+    function sync() {
+      var has = !!cm[i.id];
+      btn.dataset.has = has ? "1" : "";
+      plus.hidden = has; ok.hidden = !has;
+      word.textContent = has ? "Комментарий добавлен" : "Комментарий";
+      btn.setAttribute("aria-expanded", String(open));
+      box.hidden = !open;
+      prev.hidden = open || !has; prev.textContent = has ? cm[i.id].trim() : "";
+      count.textContent = ta.value.length + " / " + CMAX;
+    }
+    btn.addEventListener("click", function () { open = !open; sync(); if (open) ta.focus(); });
+    ta.addEventListener("input", function () { setCm(i.id, ta.value); sync(); });
+    sync();
+    return el("div", { class: "cm" }, btn, prev, box);
+  }
   function cardFor(i, g) {
     var seg = segFor(i), pill = el("span", { class: "state", "aria-hidden": "true" });
     var need = String(i.need || "").replace(/^С вас:\s*/, "");
@@ -126,7 +173,7 @@
       el("dl", { class: "facts" },
         el("div", null, el("dt", null, "Участвуют"), el("dd", null, i.who)),
         el("div", null, el("dt", null, "С вас"), el("dd", null, need))),
-      how, seg);
+      how, seg, cmFor(i));
     cardEl[i.id] = c; segEl[i.id] = seg; stateEl[i.id] = pill;
     if (i.nopic) c.classList.add("no-pic");
     return c;
@@ -379,12 +426,13 @@
     var y = wanted(), m = [], n = [], none = [], cut = CAPS ? SLOTS : y.length;
     IDEAS.forEach(function (i) { var v = st[i.id] || ""; if (v !== "y") (v === "m" ? m : v === "n" ? n : none).push(i); });
     if (y.length) {
-      L.push("ХОТИМ (" + y.length + "), примерный порядок вечера:"); y.slice(0, cut).forEach(function (i, k) { L.push((k + 1) + ". " + i.title); }); L.push("");
-      if (y.length > cut) { L.push("ПОД ЧЕРТОЙ, обсудим до финального сценария (" + (y.length - cut) + "):"); y.slice(cut).forEach(function (i) { L.push("• " + i.title); }); L.push(""); }
+      L.push("ХОТИМ (" + y.length + "), примерный порядок вечера:"); y.slice(0, cut).forEach(function (i, k) { L.push((k + 1) + ". " + i.title); L.push.apply(L, cmLines(i, "   ")); }); L.push("");
+      if (y.length > cut) { L.push("ПОД ЧЕРТОЙ, обсудим до финального сценария (" + (y.length - cut) + "):"); y.slice(cut).forEach(function (i) { L.push("• " + i.title); L.push.apply(L, cmLines(i, "  ")); }); L.push(""); }
     }
-    function sec(t, a) { if (a.length) { L.push(t + " (" + a.length + "):"); a.forEach(function (i) { L.push("• " + i.title); }); L.push(""); } }
+    function sec(t, a) { if (a.length) { L.push(t + " (" + a.length + "):"); a.forEach(function (i) { L.push("• " + i.title); L.push.apply(L, cmLines(i, "  ")); }); L.push(""); } }
     sec("МОЖНО", m); sec("НЕ НАШЕ", n); sec("НЕ ОТМЕЧЕНО", none);
     L.push(capLine(y.length));
+    if (cmCount()) L.push("Комментариев: " + cmCount() + ".");
     if (PRIZES.length) L.push("", prizeLine());
     return L.join("\n");
   }
@@ -417,6 +465,7 @@
       box.append(el("div", { class: "dg dg-" + r[0] }, el("span", { class: "dgl" }, el("span", { class: "ico", "aria-hidden": "true", html: ICON[r[0]] }), r[1]), el("b", { class: "num" }, String(r[2]))));
     });
     box.append(el("div", { class: "dg dg-t" }, el("span", { class: "dgl" }, "Не отмечено"), el("b", { class: "num" }, String(t.none))));
+    box.append(el("div", { class: "dg dg-c" }, el("span", { class: "dgl" }, "Комментариев:"), el("b", { class: "num" }, String(cmCount()))));
     // название, призы и сколько выбрано из рекомендованных (штамп в текст выбора не попадает)
     var pa = pzChosen();
     $("xtitle").textContent = titleText();
@@ -426,8 +475,8 @@
     $("xpickrow").hidden = !PICKS.length;
     $("xpick").textContent = "выбрано " + PICKS.filter(function (i) { return st[i.id] === "y"; }).length + " из " + PICKS.length;
     var y = wanted(), ol = $("order"), bl = $("below"), cut = CAPS ? SLOTS : y.length;
-    ol.innerHTML = ""; y.slice(0, cut).forEach(function (i) { ol.append(el("li", null, i.title)); });
-    bl.innerHTML = ""; y.slice(cut).forEach(function (i) { bl.append(el("li", null, i.title)); });
+    ol.innerHTML = ""; y.slice(0, cut).forEach(function (i) { ol.append(el("li", null, el("span", null, i.title, cmNode(i)))); });
+    bl.innerHTML = ""; y.slice(cut).forEach(function (i) { bl.append(el("li", null, el("span", null, i.title, cmNode(i)))); });
     bl.hidden = $("belowh").hidden = y.length <= cut;
     $("orderbox").hidden = !y.length;
     $("ordhrs").textContent = capLine(y.length);
@@ -436,7 +485,7 @@
   }
   function openSheet() {
     opener = document.activeElement; hideToast();
-    if (sentSig && sentSig !== JSON.stringify(st) && (sendS === "ok")) setSend("idle");
+    if (sentSig && sentSig !== sigNow() && (sendS === "ok")) setSend("idle");
     if (sendS === "busy") { /* отправка уже идёт: показываем её состояние */ } else if (sendS === "err") { /* оставляем сообщение об ошибке */ } else if (sendS !== "ok") setSend("idle");
     sheetOn = true; fillSheet();
     sheet.setAttribute("aria-hidden", "false"); sheet.inert = false; scrim.classList.add("on"); sheet.classList.add("on");
@@ -497,13 +546,16 @@
   if (ENDPOINT) { $("push").hidden = false; $("copy").classList.remove("main"); $("push").classList.add("main"); } else { $("push").hidden = true; }
   $("push").onclick = function () {
     if (sendS === "busy" || sendS === "ok") return;
-    var y = wanted(), cut = CAPS ? SLOTS : y.length, m = [], n = []; IDEAS.forEach(function (i) { var v = st[i.id] || ""; (v === "m" ? m : v === "n" ? n : []).push(i); });
-    var doc = [], mk = function (t, a, ord) { if (a.length) doc.push({ section: t, items: a.map(function (i, k) { return { q: i.title, a: ord ? (k < cut ? "№ " + (k + 1) + " в порядке вечера" : "под чертой: обсудим до финального сценария") : t }; }) }); };
+    var y = wanted(), cut = CAPS ? SLOTS : y.length, m = [], n = [], none = []; IDEAS.forEach(function (i) { var v = st[i.id] || ""; (v === "m" ? m : v === "n" ? n : v === "y" ? [] : none).push(i); });
+    // комментарий уходит в то же поле a отдельной строкой; игры без отметки идут в раздел «Не отмечено» только если к ним есть комментарий
+    var cc = function (i, s) { var c = cmText(i.id); return c ? s + "\nКомментарий: " + c : s; };
+    none = none.filter(function (i) { return cmText(i.id); });
+    var doc = [], mk = function (t, a, ord) { if (a.length) doc.push({ section: t, items: a.map(function (i, k) { return { q: i.title, a: cc(i, ord ? (k < cut ? "№ " + (k + 1) + " в порядке вечера" : "под чертой: обсудим до финального сценария") : t) }; }) }); };
     doc.push({ section: "Название вечера", items: [{ q: title, a: tFixed ? "Название вечера" : "Название вечера (предварительное)" }] });
-    mk("Хотим", y, true); mk("Можно", m); mk("Не наше", n);
+    mk("Хотим", y, true); mk("Можно", m); mk("Не наше", n); mk("Не отмечено", none);
     var pa = pzChosen(); if (pa.length) doc.push({ section: "Призы", items: pa.map(function (p) { return { q: p.title, a: pzFixed ? "Приз выбран" : "Приз выбран (предварительно)" }; }) });
     var payload = { app: "wedding-constructor", kind: "program", couple: "gazprom-phg-29-10", names: { b: "Газпром ПХГ, профсоюз, 29.10", g: "" }, answers: st, doc: doc, text: summary() };
-    var sig = JSON.stringify(st);
+    var sig = sigNow();
     setSend("busy", "Отправляю ведущему. Это занимает несколько секунд.");
     var ctl = "AbortController" in window ? new AbortController() : null, to = setTimeout(function () { ctl && ctl.abort(); }, 30000);
     fetch(ENDPOINT, { method: "POST", mode: "cors", redirect: "follow", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify(payload), signal: ctl ? ctl.signal : undefined })
