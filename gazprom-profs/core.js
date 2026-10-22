@@ -1,4 +1,4 @@
-// Страница выбора идей (корпоратив Газпром ПХГ, профсоюз, 29.10.2026, 47 гостей). Данные: data/data-program.js (IDEAS) и data/more.js (SETS).
+// Страница выбора идей (корпоратив Газпром ПХГ, профсоюз, 29.10.2026, 47 гостей). Данные: data/data-program.js (IDEAS, HOURS, TIMING) и data/more.js (SETS).
 // Логика и имена перенесены из рабочей страницы site/gazprom: IDEAS, SETS, KEY, st, paint, summary, save, ENDPOINT, id send / sheet / push / copy / save.
 // Отметки хранятся в браузере. Наружу уходит только то, что организатор отправил кнопкой «Отправить ведущему».
 // Ключи адреса: ?demo=1 (примерные отметки для кадров, в память не пишутся) · ?reset=1 (очистить сохранённый выбор).
@@ -15,9 +15,12 @@
     m: '<svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5.6 6.1c0-1.4 1-2.3 2.4-2.3s2.4.9 2.4 2.1c0 1.9-2.4 1.9-2.4 3.7"/><path d="M8 12.4v.1"/></svg>',
     n: '<svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8"/></svg>'
   };
-  var SLUG = { "Игры за столами": "tables", "С участием коллег": "people", "Песни": "songs", "Фоном весь вечер": "bg" };
-  var TAB = { tables: "Столы", people: "Коллеги", songs: "Песни", bg: "Фоном" };
-  var HUE = { tables: 212, people: 200, songs: 192, bg: 222 };
+  var SLUG = { "С экраном": "screen", "Команда на команду": "versus", "Музыкальные": "music", "С участием коллег": "people" };
+  var TAB = { screen: "Экран", versus: "Команды", music: "Музыка", people: "Коллеги" };
+  var HUE = { screen: 212, versus: 200, music: 192, people: 222 };
+  // тайминг вечера (data/data-program.js): часы называем, только когда Григорий подтвердил HOURS
+  var HOURS = +window.HOURS || 3, HOURS_OK = window.HOURS_OK === true;
+  var TM = window.TIMING || { game: 20, breakFirstHour: 15, breakLater: 20 };
 
   function $(i) { return document.getElementById(i); }
   function el(tag, attrs) {
@@ -28,10 +31,22 @@
   }
   function plural(n, a, b, c5) { var m = n % 100, k = n % 10; return m > 10 && m < 15 ? c5 : k === 1 ? a : k > 1 && k < 5 ? b : c5; }
   function reduced() { return matchMedia("(prefers-reduced-motion: reduce)").matches; }
+  // длина вечера на n игр: игра ≈ 20 мин, после каждой перерыв (в первый час 15 мин, дальше 20)
+  function eveningMin(n) { var t = 0; for (var k = 1; k <= n; k++) { t += TM.game; if (k < n) t += t < 60 ? TM.breakFirstHour : TM.breakLater; } return t; }
+  function slotsFor(h) { var n = 0; while (n < 99 && eveningMin(n + 1) <= h * 60) n++; return n; }
+  var SLOTS = slotsFor(HOURS);
+  function hoursText(n) { var h = Math.max(.5, Math.round(eveningMin(n) / 30) / 2); return h === .5 ? "полчаса" : h % 1 ? String(h).replace(".", ",") + " часа" : h + " " + plural(h, "час", "часа", "часов"); }
+  function chosenText(n) { return plural(n, "Выбрана", "Выбрано", "Выбрано") + " " + n + " " + plural(n, "игра", "игры", "игр"); }
+  function enoughText(n) { return "примерно хватит на " + hoursText(n) + " вечера"; }
+  // примерный порядок: от спокойных к динамичным (поле pace), при равенстве — как в списке
+  function byPace(a) { return a.map(function (i, n) { return [i, n]; }).sort(function (p, q) { return ((p[0].pace || 99) - (q[0].pace || 99)) || (p[1] - q[1]); }).map(function (p) { return p[0]; }); }
 
   // ——— память ———
   var st = {};
   try { if (qs.has("reset")) localStorage.removeItem(KEY); var raw = localStorage.getItem(KEY); if (raw) st = JSON.parse(raw) || {}; } catch (e) { st = {}; }
+  // отметки игр, которых больше нет в списке (убраны 23.10), не храним и не отправляем
+  var known = {}; IDEAS.forEach(function (i) { known[i.id] = 1; });
+  Object.keys(st).forEach(function (k) { if (k !== "_set" && !known[k]) delete st[k]; });
   if (qs.has("demo") && !Object.keys(st).length) IDEAS.forEach(function (i, n) { var r = n % 5 === 3 ? "m" : n % 7 === 5 ? "n" : n % 3 === 0 || n % 3 === 1 ? "y" : ""; if (r) st[i.id] = r; });
   function save() { try { localStorage.setItem(KEY, JSON.stringify(st)); } catch (e) { /* без памяти работаем в рамках сессии */ } }
 
@@ -62,7 +77,6 @@
         el("img", { src: "assets/img/corp/" + i.id + ".webp", alt: "", loading: "lazy", decoding: "async", width: 1200, height: 800,
           onerror: function () { this.parentNode.remove(); } })),
       el("div", { class: "ihead" },
-        el("span", { class: "tent", role: "img", "aria-label": i.min + " " + plural(i.min, "минута", "минуты", "минут") },el("b", null, String(i.min)), el("i", null, "мин")),
         el("div", { class: "ititle" }, el("h3", null, i.title), i.suggest ? el("span", { class: "tag" }, "предложение") : null)),
       el("p", { class: "why" }, i.why),
       el("dl", { class: "facts" },
@@ -82,13 +96,13 @@
     var sec = el("section", { class: "stage", id: "s-" + g.slug, "data-id": g.slug, style: "--h:" + hue, "aria-labelledby": "h-" + g.slug },
       el("div", { class: "stage-in" },
         el("header", { class: "stage-head" },
-          el("p", { class: "when" }, "Группа " + (gi + 1) + " из " + groups.length + " · " + g.items.length + " " + plural(g.items.length, "идея", "идеи", "идей")),
+          el("p", { class: "when" }, "Глава " + (gi + 1) + " из " + groups.length + " · " + g.items.length + " " + plural(g.items.length, "игра", "игры", "игр")),
           el("h2", { id: "h-" + g.slug }, g.name),
           el("p", { class: "lead" }, g.lead), cnt),
         el("div", { class: "grid" }, g.items.map(function (i) { return cardFor(i, g); }))));
     main.append(sec);
   });
-  main.append(el("p", { class: "foot" }, "Ведущий: Григорий. Время каждой игры примерное, точный порядок согласуем с вами."));
+  main.append(el("p", { class: "foot" }, "Ведущий: Григорий. Порядок игр примерный, точный согласуем с вами."));
 
   function go(id) { var t = $(id); if (t) t.scrollIntoView({ behavior: reduced() ? "auto" : "smooth" }); }
   var cta = $("goFirst"); if (cta) cta.addEventListener("click", function (e) { e.preventDefault(); go("s-" + groups[0].slug); });
@@ -125,10 +139,11 @@
 
   // ——— итог ———
   function totals() {
-    var t = { y: 0, m: 0, n: 0, done: 0, mins: 0 };
-    IDEAS.forEach(function (i) { var v = st[i.id] || ""; if (v) { t.done++; t[v]++; } if (v === "y") t.mins += i.min; });
+    var t = { y: 0, m: 0, n: 0, done: 0, none: 0 };
+    IDEAS.forEach(function (i) { var v = st[i.id] || ""; if (v) { t.done++; t[v]++; } else t.none++; });
     return t;
   }
+  function wanted() { return byPace(IDEAS.filter(function (i) { return st[i.id] === "y"; })); }
   var lastMark = "";
   function paint() {
     IDEAS.forEach(function (i) {
@@ -137,32 +152,37 @@
       if (v) stateEl[i.id].innerHTML = '<span class="ico">' + ICON[v] + "</span>" + LAB[v]; // при снятии отметки метка плавно гаснет с прежним словом
     });
     [].forEach.call(setsEl.children, function (b) { b.setAttribute("aria-pressed", st._set === b.dataset.id ? "true" : "false"); });
-    var t = totals(), all = IDEAS.length;
-    var prog = $("prog"); prog.textContent = t.done + " из " + all; prog.setAttribute("aria-label", "Отмечено " + t.done + " из " + all + " идей"); prog.style.setProperty("--p", (all ? t.done / all : 0).toFixed(3));
-    if (lastMark !== "" && lastMark !== String(t.done) && !reduced()) { prog.classList.remove("tick"); void prog.offsetWidth; prog.classList.add("tick"); }
-    lastMark = String(t.done);
-    $("barfill").style.width = (all ? t.done / all * 100 : 0) + "%";
+    // полоска и кольцо — по выходам: сколько «Хотим» из игр, которые помещаются в вечер
+    var t = totals(), fill = SLOTS ? Math.min(1, t.y / SLOTS) : 0;
+    var prog = $("prog");
+    prog.textContent = HOURS_OK ? t.y + " из " + SLOTS : t.y + " " + plural(t.y, "игра", "игры", "игр");
+    prog.setAttribute("aria-label", chosenText(t.y) + (HOURS_OK ? " из " + SLOTS + ", которые поместятся в вечер" : ""));
+    prog.style.setProperty("--p", fill.toFixed(3));
+    if (lastMark !== "" && lastMark !== String(t.y) && !reduced()) { prog.classList.remove("tick"); void prog.offsetWidth; prog.classList.add("tick"); }
+    lastMark = String(t.y);
+    $("barfill").style.width = fill * 100 + "%";
     var num = function (n) { return '<b class="num">' + n + "</b>"; };
     $("sum").innerHTML = t.done
-      ? "<span>Хотим " + num(t.y) + " · можно " + num(t.m) + "</span><small>не наше " + num(t.n) + " · ≈ " + num(t.mins) + " мин</small>"
+      ? "<span>" + plural(t.y, "Выбрана", "Выбрано", "Выбрано") + " " + num(t.y) + " " + plural(t.y, "игра", "игры", "игр") + "</span><small>"
+        + (HOURS_OK && t.y ? enoughText(t.y) : "можно " + num(t.m) + " · не наше " + num(t.n)) + "</small>"
       : "<span>Пока ничего не отмечено</span><small>Выберите набор или игры</small>";
     groups.forEach(function (g) {
-      var d = 0, y = 0; g.items.forEach(function (i) { var v = st[i.id] || ""; if (v) d++; if (v === "y") y += i.min; });
+      var d = 0; g.items.forEach(function (i) { if (st[i.id]) d++; });
       scaleEl[g.slug].style.setProperty("--p", (d / g.items.length).toFixed(3));
-      groupEl[g.slug].textContent = d ? "Отмечено " + d + " из " + g.items.length + (y ? " · по «Хотим» ≈ " + y + " мин" : "") : "";
+      groupEl[g.slug].textContent = d ? "Отмечено " + d + " из " + g.items.length : "";
     });
     if (sheetOn) fillSheet();
   }
 
   // ——— текст выбора (он же уходит ведущему) ———
   function summary() {
-    var L = ["Идеи для вечера: Газпром ПХГ, профсоюз, 29.10.2026, 47 человек.", ""];
-    var y = [], m = [], n = [], none = [];
-    IDEAS.forEach(function (i) { var v = st[i.id] || ""; (v === "y" ? y : v === "m" ? m : v === "n" ? n : none).push(i); });
-    var mins = y.reduce(function (s, i) { return s + i.min; }, 0);
-    function sec(t, a) { if (a.length) { L.push(t + " (" + a.length + "):"); a.forEach(function (i) { L.push("• " + i.title + " — " + i.min + " мин"); }); L.push(""); } }
-    sec("ХОТИМ", y); sec("МОЖНО", m); sec("НЕ НАШЕ", n); sec("НЕ ОТМЕЧЕНО", none);
-    L.push("Игр по «Хотим»: около " + mins + " минут.");
+    var L = ["Игры для вечера: Газпром ПХГ, профсоюз, 29.10.2026, 47 человек.", ""];
+    var y = wanted(), m = [], n = [], none = [];
+    IDEAS.forEach(function (i) { var v = st[i.id] || ""; if (v !== "y") (v === "m" ? m : v === "n" ? n : none).push(i); });
+    if (y.length) { L.push("ХОТИМ (" + y.length + "), примерный порядок вечера:"); y.forEach(function (i, k) { L.push((k + 1) + ". " + i.title); }); L.push(""); }
+    function sec(t, a) { if (a.length) { L.push(t + " (" + a.length + "):"); a.forEach(function (i) { L.push("• " + i.title); }); L.push(""); } }
+    sec("МОЖНО", m); sec("НЕ НАШЕ", n); sec("НЕ ОТМЕЧЕНО", none);
+    L.push(chosenText(y.length) + (HOURS_OK && y.length ? ", " + enoughText(y.length) : "") + ".");
     return L.join("\n");
   }
 
@@ -192,7 +212,11 @@
     [["y", "Хотим", t.y], ["m", "Можно", t.m], ["n", "Не наше", t.n]].forEach(function (r) {
       box.append(el("div", { class: "dg dg-" + r[0] }, el("span", { class: "dgl" }, el("span", { class: "ico", "aria-hidden": "true", html: ICON[r[0]] }), r[1]), el("b", { class: "num" }, String(r[2]))));
     });
-    box.append(el("div", { class: "dg dg-t" }, el("span", { class: "dgl" }, "Минут по «Хотим»"), el("b", { class: "num" }, "≈ " + t.mins)));
+    box.append(el("div", { class: "dg dg-t" }, el("span", { class: "dgl" }, "Не отмечено"), el("b", { class: "num" }, String(t.none))));
+    var y = wanted(), ol = $("order");
+    ol.innerHTML = ""; y.forEach(function (i) { ol.append(el("li", null, i.title)); });
+    $("orderbox").hidden = !y.length;
+    $("ordhrs").textContent = chosenText(y.length) + (HOURS_OK && y.length ? ", " + enoughText(y.length) : "") + ".";
     $("pre").textContent = summary();
     $("emptyhint").hidden = t.done > 0;
   }
@@ -241,9 +265,9 @@
   if (ENDPOINT) { $("push").hidden = false; $("copy").classList.remove("main"); $("push").classList.add("main"); } else { $("push").hidden = true; }
   $("push").onclick = function () {
     if (sendS === "busy" || sendS === "ok") return;
-    var doc = [], mk = function (t, a) { if (a.length) doc.push({ section: t, items: a.map(function (i) { return { q: i.title, a: i.min + " мин" }; }) }); };
-    var y = [], m = [], n = []; IDEAS.forEach(function (i) { var v = st[i.id] || ""; (v === "y" ? y : v === "m" ? m : v === "n" ? n : []).push(i); });
-    mk("Хотим", y); mk("Можно", m); mk("Не наше", n);
+    var doc = [], mk = function (t, a, ord) { if (a.length) doc.push({ section: t, items: a.map(function (i, k) { return { q: i.title, a: ord ? "№ " + (k + 1) + " в порядке вечера" : t }; }) }); };
+    var y = wanted(), m = [], n = []; IDEAS.forEach(function (i) { var v = st[i.id] || ""; (v === "m" ? m : v === "n" ? n : []).push(i); });
+    mk("Хотим", y, true); mk("Можно", m); mk("Не наше", n);
     var payload = { app: "wedding-constructor", kind: "program", couple: "gazprom-phg-29-10", names: { b: "Газпром ПХГ, профсоюз, 29.10", g: "" }, answers: st, doc: doc, text: summary() };
     var sig = JSON.stringify(st);
     setSend("busy", "Отправляю ведущему. Это занимает несколько секунд.");
