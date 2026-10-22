@@ -5,11 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#dcecfb">
 <meta name="robots" content="noindex,nofollow">
-<!-- Название вечера — рабочее, ⚠ Григорию на выбор (то же в staging/gazprom-rules/run1/НАЗВАНИЯ.md):
-     1) «Вечер столов: команда против команды» — сразу объясняет формат: играют столы, а не отдельные люди.
-     2) «Стол на стол» — коротко и задорно, как «стенка на стенку», легко сказать вслух.
-     3) «Кубок столов» — звучит как турнир с призом, подходит для итогового награждения. -->
-<title>Вечер столов: команда против команды · выбор игр 29.10</title>
+<!-- Название по умолчанию «Кубок столов» (решение Григория 23.10). Остальные варианты — data/titles.js, переключаются кнопкой «Другое название»;
+     выбранное подставляется в title, шапку и h1 скриптом core.js. -->
+<title>Кубок столов · выбор игр 29.10</title>
 <link rel="stylesheet" href="core.css">
 <style>
 /* «Жидкое стекло» в голубой гамме. Стекло только в навигации: шапка с группами, нижняя панель «Итог», шторка отправки (glass.css).
@@ -33,7 +31,7 @@ body { margin: 0; font: 400 17px/1.5 var(--font); color: var(--ink); background:
 .top { position: fixed; z-index: 30; top: max(10px, env(safe-area-inset-top)); left: var(--pad); right: var(--pad); max-width: 760px; margin: 0 auto; padding: 8px 8px 10px; }
 .top-row { padding: 2px 8px 8px 12px; max-height: 84px; overflow: hidden; transition: max-height .45s cubic-bezier(.16,1,.3,1), padding .45s, opacity .3s; }
 .compact .top-row { max-height: 0; padding-top: 0; padding-bottom: 0; opacity: 0; }
-.ttl { display: block; font: 800 clamp(20px, 6vw, 26px)/1.2 var(--font); letter-spacing: -.02em; white-space: nowrap; }
+.ttl { display: block; font: 800 clamp(20px, 6vw, 26px)/1.2 var(--font); letter-spacing: -.02em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 @media (max-width: 599px) { .ttl-x { display: none; } } /* на телефоне в шапке короткое имя, полное — в заголовке первого экрана */
 .sub-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 4px; }
 .sub-row > span { font: 600 15px/1.2 var(--font); color: var(--ink-2); white-space: nowrap; }
@@ -45,7 +43,8 @@ body { margin: 0; font: 400 17px/1.5 var(--font); color: var(--ink); background:
 .tabs { position: relative; display: flex; gap: 2px; overflow-x: auto; scrollbar-width: none; padding: 3px; border-radius: 999px; }
 .tabs::-webkit-scrollbar { display: none; }
 .tabs .thumb { position: absolute; top: 3px; bottom: 3px; left: 0; border-radius: 999px; transition: transform .5s cubic-bezier(.3,1.35,.5,1), width .5s cubic-bezier(.3,1.35,.5,1); pointer-events: none; }
-.tab { position: relative; z-index: 1; flex: 1 1 auto; min-width: 0; border: 0; background: none; min-height: 44px; padding: 0 8px; border-radius: 999px; font: 650 15px/1 var(--font); color: var(--ink); white-space: nowrap; }
+.tab { position: relative; z-index: 1; flex: 1 1 auto; min-width: max-content; border: 0; background: none; min-height: 44px; padding: 0 8px; border-radius: 999px; font: 650 15px/1 var(--font); color: var(--ink); white-space: nowrap; }
+@media (max-width: 420px) { .tab { padding: 0 5px; } } /* пять вкладок (с «Призами») на телефоне; если не влезут, полоса вкладок листается сама, страница — нет */
 .scale { display: flex; gap: 3px; height: 5px; margin: 9px 10px 0; }
 .scale i { flex: var(--w) 1 0; border-radius: 3px; background: rgba(15,60,120,.16); overflow: hidden; position: relative; }
 .scale i::after { content: ""; position: absolute; inset: 0; width: calc(var(--p, 0) * 100%); background: var(--blue); border-radius: inherit; transition: width .6s cubic-bezier(.16,1,.3,1); }
@@ -58,7 +57,27 @@ main { max-width: 1120px; margin: 0 auto; padding: 0 var(--pad); outline: 0; }
   background: linear-gradient(180deg, #ffffff, #f4f9ff); box-shadow: inset 0 0 0 1px rgba(255,255,255,.95), 0 28px 46px -28px rgba(8,38,84,.5), 0 3px 8px rgba(8,38,84,.1); }
 .hero-art:empty { display: none; } /* слот под будущую хиро-картинку (второй проход), пока пустой */
 .kick { margin: 0; font: 700 14px/1.3 var(--font); letter-spacing: .06em; text-transform: uppercase; color: var(--blue-ink); }
-.hero h1 { margin: 8px 0 0; font: 900 clamp(34px, 9.4vw, 60px)/1.04 var(--font); letter-spacing: -.035em; text-wrap: balance; }
+.hero h1 { margin: 8px 0 0; font: 900 clamp(34px, 9.4vw, 60px)/1.04 var(--font); letter-spacing: -.035em; text-wrap: balance; overflow-wrap: break-word; }
+#evTitle.swap { animation: ttlin .5s cubic-bezier(.16,1,.3,1); }
+@keyframes ttlin { from { opacity: 0; } }
+/* переключатель названия: кнопка «Другое название» раскрывает список вариантов (радиокнопки) */
+.tsw { margin: 12px 0 0; }
+.tswb { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 14px 0 18px; border: 0; border-radius: 999px; background: var(--blue-soft); color: var(--blue-ink); font: 750 16px/1 var(--font); transition: background-color .2s, transform .2s cubic-bezier(.3,1.5,.5,1); }
+.tswb svg { width: 18px; height: 18px; transition: transform .35s cubic-bezier(.3,1.4,.5,1); }
+.tswb[aria-expanded="true"] svg { transform: rotate(180deg); }
+.tswb:active { transform: scale(.97); }
+.tlist { margin: 12px 0 0; padding: 14px; border-radius: 22px; background: #edf4fb; text-align: left; }
+.tlh { margin: 0 0 10px; font: 600 15px/1.4 var(--font); color: var(--ink-2); }
+.topts { display: flex; flex-wrap: wrap; gap: 8px; }
+.topt { position: relative; display: flex; max-width: 100%; }
+.topt > span { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 8px 16px; border-radius: 999px; background: #fff; box-shadow: inset 0 0 0 1.5px rgba(15,60,120,.18); font: 650 17px/1.25 var(--font); color: var(--ink); cursor: pointer; transition: background-color .2s, color .2s, box-shadow .2s; }
+.topt .ico { display: none; line-height: 0; }
+.topt input:checked + span { background: var(--blue); color: #fff; box-shadow: 0 6px 12px -6px rgba(0,60,130,.75); }
+.topt input:checked + span .ico { display: inline-grid; }
+.topt input:focus-visible + span { outline: 3px solid var(--ink); outline-offset: 2px; }
+.tdone { margin-top: 12px; min-height: 44px; padding: 0 22px; border: 2px solid var(--blue); border-radius: 999px; background: #fff; color: var(--blue-ink); font: 800 16px/1 var(--font); }
+.picknote { display: flex; align-items: center; justify-content: center; gap: 8px; margin: 8px 0 0; font: 500 15px/1.4 var(--font); color: var(--ink-2); }
+.picknote svg { flex: none; color: var(--blue-ink); }
 .hlead { margin: 14px auto 0; max-width: 34ch; font: 650 20px/1.3 var(--font); color: var(--ink); }
 .hp { margin: 10px auto 0; max-width: 44ch; color: var(--ink-2); }
 .hfacts { list-style: none; display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin: 18px 0 0; padding: 0; }
@@ -106,6 +125,13 @@ main { max-width: 1120px; margin: 0 auto; padding: 0 var(--pad); outline: 0; }
 .pic { margin: -22px -18px 2px; aspect-ratio: 3 / 2; overflow: hidden; border-radius: 24px 24px 0 0; background: #e6f1fb; }
 .pic img { display: block; width: 100%; height: 100%; object-fit: cover; transition: filter .3s, opacity .3s; }
 .item[data-v="n"] .pic img { filter: grayscale(.7); opacity: .6; }
+/* штамп «Рекомендует ведущий»: печать поверх картинки, не кнопка; без картинки — над названием */
+.pick { position: absolute; z-index: 2; top: 14px; left: 14px; display: inline-flex; align-items: center; gap: 7px; margin: 0; padding: 7px 12px 7px 9px; border: 2px solid currentColor; border-radius: 14px; background: rgba(255,255,255,.95); color: var(--blue-ink);
+  box-shadow: inset 0 0 0 2px #fff, inset 0 0 0 3.5px rgba(0,74,148,.4), 0 10px 18px -10px rgba(8,38,84,.6); transform: rotate(-5deg); font: 800 14px/1.05 var(--font); letter-spacing: .06em; text-transform: uppercase; pointer-events: none; }
+.pick .ico { display: inline-grid; place-items: center; line-height: 0; }
+.pickt { display: grid; }
+.item.no-pic .pick { position: static; align-self: flex-start; transform: rotate(-3deg); }
+.item[data-v="n"] .pick { opacity: .75; }
 @media (hover: hover) { .item:hover { transform: translateY(-3px); } }
 .state { position: absolute; top: -16px; right: 16px; z-index: 2; display: inline-flex; align-items: center; gap: 6px; min-height: 32px; padding: 0 13px 0 9px; border-radius: 999px; font: 700 15px/1 var(--font); color: #fff; background: var(--blue);
   box-shadow: 0 8px 14px -6px rgba(0,40,100,.6); opacity: 0; transform: translateY(8px) scale(.7); transition: opacity .25s, transform .45s cubic-bezier(.3,1.7,.5,1), background-color .25s; pointer-events: none; }
@@ -138,6 +164,39 @@ main { max-width: 1120px; margin: 0 auto; padding: 0 var(--pad); outline: 0; }
 .seg .ico { display: inline-grid; place-items: center; line-height: 0; }
 .seg button.pop .ico { animation: popi .45s cubic-bezier(.3,1.8,.5,1); }
 @keyframes popi { 0% { transform: scale(.3); } 100% { transform: scale(1); } }
+
+/* ——— призы: раздел внизу, шкала бюджета и карточки-чекбоксы (место под фото: .pzart) ——— */
+.h2b { display: block; width: max-content; max-width: 100%; margin-top: 10px; padding: 6px 14px; border-radius: 999px; background: #fff; color: var(--blue-ink); font: 800 clamp(18px, 4.8vw, 22px)/1.2 var(--font); letter-spacing: -.01em; }
+.prizes .lead { max-width: 52ch; }
+.pzbar { display: grid; gap: 10px; max-width: 760px; margin-top: 22px; padding: 16px 18px; border-radius: 22px; background: #fff; box-shadow: 0 22px 34px -24px rgba(8,38,84,.55), 0 2px 6px rgba(8,38,84,.08); }
+.pzsum { margin: 0; font: 700 17px/1.35 var(--font); color: var(--ink); }
+.pzsum small { display: block; margin-top: 2px; font: 500 15px/1.4 var(--font); color: var(--ink-2); }
+.pzsum .num { font-size: 15px; }
+.pzstrip { height: 8px; border-radius: 4px; overflow: hidden; background: rgba(15,60,120,.14); }
+.pzstrip i { display: block; height: 100%; width: 0; border-radius: inherit; background: var(--blue); transition: width .6s cubic-bezier(.16,1,.3,1); }
+.pzbar.over .pzstrip i { background: repeating-linear-gradient(135deg, var(--ink) 0 8px, var(--ink-2) 8px 16px); }
+.pzex { margin: 4px 0 0; font: 500 15px/1.4 var(--font); color: var(--ink-2); }
+.pzset { justify-self: start; min-height: 48px; padding: 0 18px; border: 2px solid var(--blue); border-radius: 999px; background: #fff; color: var(--blue-ink); font: 800 16px/1.15 var(--font); text-align: left; transition: background-color .2s, transform .2s cubic-bezier(.3,1.5,.5,1); }
+.pzset[aria-pressed="true"] { background: var(--blue-soft); }
+.pzset:active { transform: scale(.97); }
+.pzgrid { list-style: none; display: grid; grid-template-columns: 1fr; gap: 14px; margin: 18px 0 0; padding: 0; }
+@media (min-width: 680px) { .pzgrid { grid-template-columns: repeat(2, 1fr); } }
+@media (min-width: 1000px) { .pzgrid { grid-template-columns: repeat(3, 1fr); } }
+.pz { display: flex; }
+.pz label { position: relative; flex: 1; display: grid; grid-template-columns: 72px 1fr; gap: 14px; align-items: start; padding: 16px 54px 16px 16px; border: 2px solid transparent; border-radius: 24px; background: #fff; cursor: pointer;
+  box-shadow: 0 22px 34px -24px rgba(8,38,84,.55), 0 2px 6px rgba(8,38,84,.08); transition: border-color .25s, background-color .25s, box-shadow .25s, transform .4s cubic-bezier(.16,1,.3,1); }
+@media (hover: hover) { .pz label:hover { transform: translateY(-2px); } }
+.pz.on label { border-color: var(--blue); background: #f7fbff; box-shadow: 0 22px 34px -22px rgba(0,94,184,.6), 0 0 0 4px rgba(0,94,184,.14); }
+.pzc { position: absolute; top: 16px; right: 16px; width: 26px; height: 26px; margin: 0; accent-color: var(--blue); cursor: pointer; }
+.pzart { display: grid; place-items: center; width: 72px; height: 72px; overflow: hidden; border-radius: 20px; background: linear-gradient(160deg, var(--blue-soft), #c6def6); color: var(--blue-ink); }
+.pzart .ico { line-height: 0; }
+.pzart img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.pzt { display: grid; gap: 6px; min-width: 0; }
+.pzt b { font: 800 19px/1.2 var(--font); letter-spacing: -.01em; color: var(--ink); text-wrap: balance; }
+.pzd { font-size: 17px; line-height: 1.45; color: var(--ink-2); }
+.pzp { justify-self: start; display: inline-flex; align-items: center; gap: 4px; min-height: 30px; padding: 0 12px; border-radius: 999px; background: var(--blue-soft); color: var(--blue-ink); font: 700 15px/1 var(--font); }
+.pzp .num { font-size: 14px; }
+.pznote { margin: 14px 0 0; max-width: 60ch; font: 500 15px/1.45 var(--font); color: var(--ink-2); }
 
 /* ——— нижняя стеклянная панель: итог и «Отправить выбор» ——— */
 .dock { position: fixed; z-index: 30; left: var(--pad); right: var(--pad); bottom: max(12px, env(safe-area-inset-bottom)); max-width: 560px; margin: 0 auto; padding: 10px 10px 12px 20px; border-radius: 34px; display: grid; grid-template-columns: 1fr auto; gap: 8px 12px; align-items: center; }
@@ -172,6 +231,13 @@ main { max-width: 1120px; margin: 0 auto; padding: 0 var(--pad); outline: 0; }
 .dgl { display: inline-flex; align-items: center; gap: 6px; font: 600 14px/1.2 var(--font); color: var(--ink-2); }
 .dgl .ico { display: inline-grid; place-items: center; line-height: 0; color: var(--blue-ink); }
 .dg b { font-size: 22px; line-height: 1.1; color: var(--ink); }
+.xtra { margin: 0 0 12px; padding: 12px 14px; border-radius: 16px; background: #fff; box-shadow: inset 0 0 0 1px rgba(15,60,120,.1); }
+.xtra dl { display: grid; gap: 8px; margin: 0; }
+.xtra dl > div { display: grid; grid-template-columns: 150px 1fr; gap: 10px; align-items: baseline; }
+.xtra dt { font: 600 14px/1.3 var(--font); color: var(--ink-2); }
+.xtra dd { margin: 0; font: 650 17px/1.35 var(--font); color: var(--ink); overflow-wrap: anywhere; }
+@media (max-width: 420px) { .xtra dl > div { grid-template-columns: 1fr; gap: 2px; } }
+.xlink { margin-top: 10px; min-height: 44px; padding: 0 16px; border: 0; border-radius: 14px; background: var(--blue-soft); color: var(--blue-ink); font: 800 16px/1 var(--font); }
 .order { margin: 0 0 12px; padding: 12px 14px 12px; border-radius: 16px; background: #fff; box-shadow: inset 0 0 0 1px rgba(15,60,120,.1); }
 .order h3 { margin: 0; font: 800 19px/1.25 var(--font); letter-spacing: -.01em; color: var(--ink); }
 .ordnote { margin: 4px 0 0; font: 500 15px/1.4 var(--font); color: var(--ink-2); }
@@ -213,7 +279,8 @@ noscript p { margin: 120px var(--pad) 0; padding: 18px; border-radius: 18px; bac
 }
 @media (prefers-contrast: more) {
   :root { --ink-2: #0a1f3d; --ink-3: #0a1f3d; }
-  .hero-panel, .steps, .item, .set, .facts, .more, .dg, .order, #pre, .go2, .toTop { box-shadow: inset 0 0 0 2px var(--ink); }
+  .hero-panel, .steps, .item, .set, .facts, .more, .dg, .order, .xtra, #pre, .go2, .toTop, .pzbar, .pz label, .tlist, .topt > span { box-shadow: inset 0 0 0 2px var(--ink); }
+  .pick { box-shadow: none; } .pz.on label { box-shadow: inset 0 0 0 3px var(--blue-ink); }
   .item { border-color: var(--ink); } .item[data-v="y"] { border-color: var(--blue-ink); box-shadow: inset 0 0 0 2px var(--blue-ink); }
   .seg { box-shadow: inset 0 0 0 2px var(--ink); } .cnt { box-shadow: inset 0 0 0 2px var(--ink); }
   .stage { background: #f5faff; } .toast { box-shadow: 0 0 0 2px #fff; }
@@ -228,7 +295,7 @@ noscript p { margin: 120px var(--pad) 0; padding: 18px; border-radius: 18px; bac
 
 <header class="top lg" id="top">
   <div class="top-row">
-    <b class="ttl">Вечер столов<span class="ttl-x">: команда против команды</span></b>
+    <b class="ttl" id="ttl">Кубок столов</b>
     <div class="sub-row"><span>29.10 · 47 гостей</span><div class="cnt" id="prog">0 игр</div></div>
   </div>
   <nav class="tabs" id="tabs" aria-label="Группы игр"><i class="thumb" aria-hidden="true"></i></nav>
@@ -242,7 +309,15 @@ noscript p { margin: 120px var(--pad) 0; padding: 18px; border-radius: 18px; bac
       <!-- место под хиро-картинку (второй проход, визуал); пока пусто -->
       <div class="hero-art" id="heroArt" aria-hidden="true"></div>
       <p class="kick">Корпоратив профсоюза · Газпром ПХГ</p>
-      <h1 id="h1">Вечер столов: команда против команды</h1>
+      <h1 id="h1"><span id="evTitle">Кубок столов</span></h1>
+      <div class="tsw">
+        <button class="tswb" id="tswb" type="button" aria-expanded="false" aria-controls="tlist">Другое название<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button>
+        <div class="tlist" id="tlist" hidden>
+          <p class="tlh" id="tlist-t">Выберите название вечера. Оно попадёт в итог вместе с играми.</p>
+          <div class="topts" id="topts" role="radiogroup" aria-labelledby="tlist-t"></div>
+          <button class="tdone" id="tdone" type="button">Готово</button>
+        </div>
+      </div>
       <p class="hlead">Выберите, во что сыграет ваша команда</p>
       <p class="hp">Гости сидят столами, и каждый стол играет как одна команда. Играем с мест, каждая игра не дольше двадцати минут.</p>
       <ul class="hfacts" aria-label="О вечере"><li>29.10</li><li>47 гостей</li></ul>
@@ -254,6 +329,7 @@ noscript p { margin: 120px var(--pad) 0; padding: 18px; border-radius: 18px; bac
       <h2 class="hsets">Начните с готового набора</h2>
       <div class="setrow" id="sets" role="group" aria-label="Готовые наборы"></div>
       <p class="setnote">Набор отмечает «Хотим» у своих игр и «Не наше» у остальных. Дальше любую игру можно поменять.</p>
+      <p class="picknote"><svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M12 2.8l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 16.8l-5.4 2.9 1-6.1-4.4-4.3 6.1-.9z"/></svg><span>Штамп «Рекомендует ведущий» стоит на играх, которые лучше всего идут с мест.</span></p>
       <a class="go2" id="goFirst" href="#main">Или выберите игры по одной</a>
     </div>
   </section>
@@ -275,6 +351,15 @@ noscript p { margin: 120px var(--pad) 0; padding: 18px; border-radius: 18px; bac
     <div class="shead"><h2 id="sh-t">Ваш выбор готов</h2><button class="close" id="shx" type="button" aria-label="Закрыть">×</button></div>
     <p class="shlead">Проверьте список и отправьте любым способом ниже. Лучше сразу двумя: так точно не потеряется.</p>
     <div class="digest" id="digest"></div>
+    <section class="xtra" aria-labelledby="xt-t">
+      <h3 class="sr" id="xt-t">Название и призы</h3>
+      <dl>
+        <div><dt>Название вечера</dt><dd id="xtitle"></dd></div>
+        <div id="xprizerow"><dt>Призы</dt><dd id="xprize"></dd></div>
+        <div id="xpickrow"><dt>Рекомендует ведущий</dt><dd id="xpick"></dd></div>
+      </dl>
+      <button class="xlink" id="topz" type="button">Выбрать призы</button>
+    </section>
     <section class="order" id="orderbox" aria-labelledby="ord-t" hidden>
       <h3 id="ord-t">Примерный порядок вечера</h3>
       <p class="ordnote">Сначала игры, где думают и смотрят на экран, ближе к концу песни. Точный порядок согласуем с вами.</p>
@@ -296,6 +381,8 @@ noscript p { margin: 120px var(--pad) 0; padding: 18px; border-radius: 18px; bac
 
 <script src="data/data-program.js"></script>
 <script src="data/more.js"></script>
+<script src="data/titles.js"></script>
+<script src="data/prizes.js"></script>
 <script src="core.js"></script>
 <script src="glass-ui.js"></script>
 </body>
