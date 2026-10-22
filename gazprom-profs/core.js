@@ -186,6 +186,52 @@
         el("ul", { class: "pzgrid", "aria-label": "Идеи призов" }, PRIZES.map(prizeFor)),
         el("p", { class: "pznote" }, "Цены примерные, точную сумму сверим перед покупкой. Выбранные призы попадут в «Итог» вместе с играми."))));
   }
+  // ——— подготовка к вечеру: обратный отсчёт до срока выбора и лента «Что дальше» (data/prep.js) ———
+  var DEADLINE = window.DEADLINE ? Date.parse(window.DEADLINE) : NaN, NEXT = (window.NEXT_STEPS || []).filter(function (s) { return typeof s === "string" && s.trim(); });
+  // ?now=ISO-время подменяет «сейчас» только для проверки; без параметра (или с неверным) берётся настоящее время. В адресе «+» превращается в пробел, возвращаем его
+  var clockOff = 0;
+  try { var np = qs.get("now"), nt = np ? Date.parse(np.replace(/ (\d\d:\d\d)$/, "+$1")) : NaN; if (!isNaN(nt)) clockOff = nt - Date.now(); } catch (e) { clockOff = 0; }
+  var cdBig = null, cdNote = null, cdTg = null, cdBox = null, cdTimer = 0;
+  function paintCd() {
+    try {
+      var left = DEADLINE - (Date.now() + clockOff);
+      if (!(left > 0)) {
+        cdBig.className = "cdbig done"; cdBig.textContent = "Срок выбора прошёл, напишите нам";
+        cdNote.hidden = true; cdTg.hidden = false; clearInterval(cdTimer); return;
+      }
+      var d = Math.floor(left / 864e5), h = Math.floor(left % 864e5 / 36e5), u = function (n, w) { return '<span class="cdu"><b class="num">' + n + "</b>" + w + "</span>"; };
+      cdBig.className = "cdbig";
+      cdBig.innerHTML = '<span class="cdl">осталось</span>' + (d || h ? (d ? u(d, " дн.") : "") + u(h, " ч") : '<span class="cdu">меньше часа</span>');
+    } catch (e) { if (cdBox) cdBox.hidden = true; clearInterval(cdTimer); }
+  }
+  var prepBlocks = [];
+  if (!isNaN(DEADLINE)) {
+    cdBig = el("p", { class: "cdbig", role: "timer" });
+    cdNote = el("p", { class: "cdnote" }, "Выбрать игры и призы можно до 26.10. Потом мы соберём порядок вечера.");
+    cdTg = el("a", { class: "tglink", href: "https://t.me/komarez", hidden: true }, "Telegram @komarez");
+    cdBox = el("div", { class: "cd" }, el("p", { class: "cdk" }, "До срока выбора"), cdBig, cdNote, cdTg);
+    prepBlocks.push(cdBox);
+  }
+  if (NEXT.length) {
+    prepBlocks.push(el("div", { class: "nxt-box" }, el("h3", { id: "nxt-t" }, "Что дальше"),
+      el("ol", { class: "nxt", "aria-labelledby": "nxt-t" }, NEXT.map(function (s, k) { return el("li", null, el("span", { class: "n", "aria-hidden": "true" }, String(k + 1)), el("span", { class: "t" }, s)); }))));
+  }
+  if (prepBlocks.length) {
+    main.append(el("section", { class: "stage prep", id: "s-prep", "data-id": "prep", style: "--h:205", "aria-labelledby": "h-prep" },
+      el("div", { class: "stage-in" },
+        el("header", { class: "stage-head" },
+          el("p", { class: "when" }, "Дальше · до вечера"),
+          el("h2", { id: "h-prep", tabindex: "-1" }, "Подготовка к вечеру"),
+          el("p", { class: "lead" }, "Мы подстроимся под ваш выбор. Ответить можно в любой момент, а срок ниже нужен, чтобы всё успеть подготовить.")),
+        el("div", { class: "prep-grid" }, prepBlocks))));
+    if (cdBig) { paintCd(); cdTimer = setInterval(paintCd, 60000); document.addEventListener("visibilitychange", function () { if (!document.hidden && cdBox && !cdBox.hidden) paintCd(); }); }
+  }
+  var toPrep = $("toPrep");
+  if (toPrep) toPrep.addEventListener("click", function (e) {
+    var t = $("s-prep"); if (!t) return;
+    e.preventDefault(); go("s-prep");
+    var hd = $("h-prep"); if (hd) hd.focus({ preventScroll: true });
+  });
   main.append(el("p", { class: "foot" }, "Ведущий: Григорий. Порядок игр примерный, точный согласуем с вами."));
 
   function go(id) { var t = $(id); if (t) t.scrollIntoView({ behavior: reduced() ? "auto" : "smooth" }); }

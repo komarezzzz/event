@@ -198,6 +198,32 @@ main { max-width: 1120px; margin: 0 auto; padding: 0 var(--pad); outline: 0; }
 .pzp .num { font-size: 14px; }
 .pznote { margin: 14px 0 0; max-width: 60ch; font: 500 15px/1.45 var(--font); color: var(--ink-2); }
 
+/* ——— подготовка к вечеру: спокойный обратный отсчёт и лента «Что дальше» ——— */
+.lnk { color: var(--blue-ink); font-weight: 750; text-decoration: underline; text-underline-offset: 3px; text-decoration-thickness: 2px; }
+.lnk:focus-visible { outline: 3px solid var(--ink); outline-offset: 2px; border-radius: 4px; }
+.prep h2:focus { outline: 0; }
+.prep-grid { display: grid; grid-template-columns: 1fr; gap: 18px; max-width: 980px; margin-top: 22px; align-items: stretch; }
+@media (min-width: 900px) { .prep-grid { grid-template-columns: 1fr 1fr; gap: 24px; } }
+.cd { display: grid; gap: 6px; align-content: center; min-width: 0; padding: 22px 20px; border-radius: 26px; background: linear-gradient(180deg, #fff, #f4f9ff); text-align: center;
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,.95), 0 22px 34px -24px rgba(8,38,84,.55), 0 2px 6px rgba(8,38,84,.08); }
+.cdk { margin: 0; font: 700 14px/1.3 var(--font); letter-spacing: .06em; text-transform: uppercase; color: var(--blue-ink); }
+.cdbig { margin: 4px 0 0; display: flex; flex-wrap: wrap; align-items: baseline; justify-content: center; gap: 4px 18px; color: var(--ink); }
+.cdl { flex-basis: 100%; font: 600 19px/1.2 var(--font); color: var(--ink-2); }
+.cdu { display: inline-flex; align-items: baseline; gap: 8px; font: 700 clamp(22px, 6vw, 28px)/1 var(--font); color: var(--ink-2); }
+.cdu .num { font-size: clamp(52px, 15vw, 76px); line-height: 1; color: var(--blue-ink); }
+.cdbig.done { display: block; font: 800 clamp(24px, 6.4vw, 30px)/1.2 var(--font); letter-spacing: -.01em; text-wrap: balance; color: var(--ink); }
+.cdnote { margin: 8px auto 0; max-width: 34ch; font: 500 17px/1.4 var(--font); color: var(--ink-2); }
+.cd .tglink { justify-self: center; }
+.nxt-box { min-width: 0; padding: 20px 18px 18px; border-radius: 26px; background: #fff; box-shadow: 0 22px 34px -24px rgba(8,38,84,.55), 0 2px 6px rgba(8,38,84,.08); }
+.nxt-box h3 { margin: 0; font: 800 21px/1.2 var(--font); letter-spacing: -.01em; }
+.nxt { list-style: none; margin: 14px 0 0; padding: 0; display: grid; gap: 0; }
+.nxt li { position: relative; display: grid; grid-template-columns: 34px 1fr; gap: 12px; align-items: start; padding-bottom: 16px; font: 600 17px/1.4 var(--font); color: var(--ink); }
+.nxt li:last-child { padding-bottom: 0; }
+.nxt li::before { content: ""; position: absolute; left: 16px; top: 36px; bottom: 2px; width: 2px; background: var(--blue-soft); }
+.nxt li:last-child::before { display: none; }
+.nxt .n { width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; background: var(--blue); color: #fff; font: 700 15px/1 var(--mono); }
+.nxt .t { padding-top: 4px; overflow-wrap: anywhere; }
+
 /* ——— нижняя стеклянная панель: итог и «Отправить выбор» ——— */
 .dock { position: fixed; z-index: 30; left: var(--pad); right: var(--pad); bottom: max(12px, env(safe-area-inset-bottom)); max-width: 560px; margin: 0 auto; padding: 10px 10px 12px 20px; border-radius: 34px; display: grid; grid-template-columns: 1fr auto; gap: 8px 12px; align-items: center; }
 .dtext { display: grid; gap: 3px; min-width: 0; font: 650 17px/1.2 var(--font); color: var(--ink); }
@@ -279,7 +305,7 @@ noscript p { margin: 120px var(--pad) 0; padding: 18px; border-radius: 18px; bac
 }
 @media (prefers-contrast: more) {
   :root { --ink-2: #0a1f3d; --ink-3: #0a1f3d; }
-  .hero-panel, .steps, .item, .set, .facts, .more, .dg, .order, .xtra, #pre, .go2, .toTop, .pzbar, .pz label, .tlist, .topt > span { box-shadow: inset 0 0 0 2px var(--ink); }
+  .hero-panel, .steps, .item, .set, .facts, .more, .dg, .order, .xtra, #pre, .go2, .toTop, .pzbar, .pz label, .tlist, .topt > span, .cd, .nxt-box { box-shadow: inset 0 0 0 2px var(--ink); }
   .pick { box-shadow: none; } .pz.on label { box-shadow: inset 0 0 0 3px var(--blue-ink); }
   .item { border-color: var(--ink); } .item[data-v="y"] { border-color: var(--blue-ink); box-shadow: inset 0 0 0 2px var(--blue-ink); }
   .seg { box-shadow: inset 0 0 0 2px var(--ink); } .cnt { box-shadow: inset 0 0 0 2px var(--ink); }
@@ -324,7 +350,7 @@ noscript p { margin: 120px var(--pad) 0; padding: 18px; border-radius: 18px; bac
       <ol class="steps" aria-label="Как выбрать игры">
         <li><span class="n" aria-hidden="true">1</span><span><b>Листайте главы</b>и отмечайте у каждой игры «Хотим», «Можно» или «Не наше»</span></li>
         <li><span class="n" aria-hidden="true">2</span><span><b>Нажмите «Итог»</b>внизу экрана и проверьте свой выбор</span></li>
-        <li><span class="n" aria-hidden="true">3</span><span><b>Отправьте нам выбор</b>кнопкой: файлом или ссылкой. Править его можно до 26.10</span></li>
+        <li><span class="n" aria-hidden="true">3</span><span><b>Отправьте нам выбор</b>кнопкой: файлом или ссылкой. Срок и что дальше: <a class="lnk" id="toPrep" href="#s-prep">Подготовка к вечеру</a></span></li>
       </ol>
       <h2 class="hsets">Начните с готового набора</h2>
       <div class="setrow" id="sets" role="group" aria-label="Готовые наборы"></div>
@@ -383,6 +409,7 @@ noscript p { margin: 120px var(--pad) 0; padding: 18px; border-radius: 18px; bac
 <script src="data/more.js"></script>
 <script src="data/titles.js"></script>
 <script src="data/prizes.js"></script>
+<script src="data/prep.js"></script>
 <script src="core.js"></script>
 <script src="glass-ui.js"></script>
 </body>
