@@ -1,14 +1,13 @@
-// Страница выбора идей (корпоратив Газпром ПХГ, профсоюз, 29.10.2026, 47 гостей). Данные: data/data-program.js (IDEAS, HOURS, EXITS, TIMING), data/more.js (SETS),
+// Страница выбора идей (корпоратив Газпром ПХГ, профсоюз, 29.10.2026, 47 гостей). Данные: data/data-program.js (IDEAS, HOURS, EXITS, TIMING),
 // data/titles.js (TITLES — варианты названия вечера), data/prizes.js (PRIZES — призы на 5 000 ₽).
-// Логика и имена перенесены из рабочей страницы site/gazprom: IDEAS, SETS, KEY, st, paint, summary, save, ENDPOINT, id send / sheet / push / copy / save.
-// Отметки игр, название и призы хранятся в браузере, у каждого свой ключ. Наружу уходит только то, что организатор отправил кнопкой «Отправить ведущему».
+// Логика и имена перенесены из рабочей страницы site/gazprom: IDEAS, KEY, st, paint, summary, save, ENDPOINT, id send / sheet / push / copy / save.
+// Отметки игр, закреплённое название и призы хранятся в браузере, у каждого свой ключ. Наружу уходит только то, что организатор отправил кнопкой «Отправить ведущему».
 // Ключи адреса: ?demo=1 (примерные отметки для кадров, в память не пишутся) · ?reset=1 (очистить сохранённый выбор, название и призы).
 (function () {
   "use strict";
   var KEY = "gazprom-evening-2026-10-29", TKEY = KEY + "-title", PKEY = KEY + "-prizes";
   var ENDPOINT = "https://script.google.com/macros/s/AKfycbwNkv6WGTWhvZ4d1KlBdtSTpKG4gTEg9cc9Y7oAeLlBt57euDRGjrtFSZsq6Its90qmqA/exec";
   var qs = new URLSearchParams(location.search);
-  var SETS = window.SETS || [];
   var LAB = { y: "Хотим", m: "Можно", n: "Не наше" };
   // значок + слово + цвет: состояние понятно не только цветом
   var ICON = {
@@ -28,9 +27,9 @@
     paper: PZI('<path d="M6 3h9l4 4v14H6z"/><path d="M15 3v4h4M9 11h7M9 14h7M9 17h4"/>')
   };
   var SLUG = { "С экраном": "screen", "Команда на команду": "versus", "Музыкальные": "music", "С участием коллег": "people" };
-  var TAB = { screen: "Экран", versus: "Команды", music: "Музыка", people: "Коллеги" };
+  var TAB = { screen: "Экран", versus: "Команды", music: "Музыка", people: "Коллеги" }; // короткие имена вкладок только для узкой шапки; от 600 px показываем полные
   var HUE = { screen: 212, versus: 200, music: 192, people: 222 };
-  // тайминг вечера (data/data-program.js): заказчику не называем ни часы, ни число выходов, они нужны только для полоски
+  // тайминг вечера (data/data-program.js): часы и число выходов (EXITS) идут в нижнюю строку «Вечер 4 часа ≈ 6 игр: выбрано N» и в «Итог»; минуты игр не показываем
   var HOURS = +window.HOURS || 4, HOURS_OK = window.HOURS_OK === true;
   var TM = window.TIMING || { game: 20, breakFirstHour: 15, breakLater: 20 };
 
@@ -49,7 +48,12 @@
   function slotsFor(h) { var n = 0; while (n < 99 && eveningMin(n + 1) <= h * 60) n++; return n; }
   // сколько выходов помещается в вечер: число задано в данных (EXITS) или считается по TIMING
   var SLOTS = +window.EXITS > 0 ? +window.EXITS : slotsFor(HOURS);
+  var CAPS = HOURS_OK && SLOTS > 0; // вместимость известна: считаем «под чертой»
   function chosenText(n) { return plural(n, "Выбрана", "Выбрано", "Выбрано") + " " + n + " " + plural(n, "игра", "игры", "игр"); }
+  // «Вечер 4 часа ≈ 6 игр: выбрано N» (число выходов берём из параметра); за чертой — игры сверх числа выходов
+  function capHead() { return "Вечер " + HOURS + " " + plural(HOURS, "час", "часа", "часов") + " ≈ " + SLOTS + " " + plural(SLOTS, "игра", "игры", "игр") + ": выбрано "; }
+  function overText(n) { return "плюс " + (n - SLOTS) + " под чертой: обсудим до финального сценария"; }
+  function capLine(n) { return CAPS ? capHead() + n + (n > SLOTS ? ". " + overText(n).charAt(0).toUpperCase() + overText(n).slice(1) : "") + "." : chosenText(n) + "."; }
   function fmtN(n) { return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, " "); }
   function rub(n) { return fmtN(n) + " ₽"; }
   function lc(s) { return s.charAt(0).toLowerCase() + s.slice(1); }
@@ -59,21 +63,25 @@
   // ——— память ———
   function load(k) { try { if (qs.has("reset")) localStorage.removeItem(k); return localStorage.getItem(k); } catch (e) { return null; } }
   function keep(k, v) { try { localStorage.setItem(k, v); } catch (e) { /* без памяти работаем в рамках сессии */ } }
+  function drop(k) { try { localStorage.removeItem(k); } catch (e) { /* без памяти работаем в рамках сессии */ } }
   var st = {}, VAL = dict(["y", "m", "n"]);
   try { var raw = load(KEY); if (raw) st = JSON.parse(raw); } catch (e) { st = {}; }
   if (!st || typeof st !== "object" || Array.isArray(st)) st = {};
-  // оставляем только известные игры со значением y / m / n и существующий набор; убранные игры (23.10), старые и повреждённые значения сбрасываем
-  var known = dict(IDEAS.map(function (i) { return i.id; })), setIds = dict(SETS.map(function (S) { return S.id; }));
-  Object.keys(st).forEach(function (k) { if (k === "_set" ? !setIds[st[k]] : (!known[k] || !VAL[st[k]])) delete st[k]; });
+  // оставляем только известные игры со значением y / m / n; убранные игры (23.10), следы наборов (_set), старые и повреждённые значения сбрасываем
+  var known = dict(IDEAS.map(function (i) { return i.id; }));
+  Object.keys(st).forEach(function (k) { if (!known[k] || !VAL[st[k]]) delete st[k]; });
   if (qs.has("demo") && !Object.keys(st).length) IDEAS.forEach(function (i, n) { var r = n % 5 === 3 ? "m" : n % 7 === 5 ? "n" : n % 3 === 0 || n % 3 === 1 ? "y" : ""; if (r) st[i.id] = r; });
   function save() { keep(KEY, JSON.stringify(st)); }
   function put(id, v) { if (VAL[v]) st[id] = v; else delete st[id]; }
 
-  // название вечера: свой ключ, в памяти принимаем только вариант из списка TITLES, иначе первый (по умолчанию «Кубок столов»)
+  // название вечера: свой ключ хранит только закреплённое название, принимаем его лишь если оно есть в списке TITLES;
+  // иначе название предварительное, по умолчанию первое («Кубок столов»)
   var TITLES = (window.TITLES || []).filter(function (t) { return typeof t === "string" && t.trim(); });
   if (!TITLES.length) TITLES = ["Кубок столов"];
-  var title = TITLES[0], tSaved = load(TKEY);
-  if (tSaved && TITLES.indexOf(tSaved) >= 0) title = tSaved;
+  var title = TITLES[0], tFixed = false, tSaved = load(TKEY);
+  if (tSaved && TITLES.indexOf(tSaved) >= 0) { title = tSaved; tFixed = true; }
+  var tIdx = TITLES.indexOf(title);
+  function titleText() { return title + (tFixed ? "" : " (предварительное)"); }
 
   // призы: свой ключ, в памяти — список id; неизвестные id отбрасываем
   var PRIZES = (window.PRIZES || []).filter(function (p) { return p && p.id && p.title; }), BUDGET = +window.PRIZE_BUDGET || 5000;
@@ -127,7 +135,7 @@
   }
   groups.forEach(function (g, gi) {
     var hue = HUE[g.slug] || 205;
-    var tab = el("button", { class: "tab", type: "button", "aria-label": g.name, onclick: function () { go("s-" + g.slug); } }, TAB[g.slug] || g.name);
+    var tab = el("button", { class: "tab", type: "button", "aria-label": g.name, onclick: function () { go("s-" + g.slug); } }, el("span", { class: "tl-s", "aria-hidden": "true" }, TAB[g.slug] || g.name), el("span", { class: "tl-f", "aria-hidden": "true" }, g.name));
     tabEl[g.slug] = tab; tabsBox.append(tab);
     var sc = el("i", { style: "--w:" + g.items.length + ";--p:0" }); scaleEl[g.slug] = sc; scaleBox.append(sc);
     var cnt = el("p", { class: "stm", id: "stm-" + g.slug });
@@ -237,50 +245,64 @@
   function go(id) { var t = $(id); if (t) t.scrollIntoView({ behavior: reduced() ? "auto" : "smooth" }); }
   var cta = $("goFirst"); if (cta) cta.addEventListener("click", function (e) { e.preventDefault(); go("s-" + groups[0].slug); });
 
-  // ——— наборы ———
-  var setsEl = $("sets");
-  SETS.forEach(function (S) {
-    var b = el("button", { type: "button", class: "set", "data-id": S.id, "aria-pressed": "false" }, el("b", null, S.name), el("span", null, S.desc), el("span", { class: "ok", "aria-hidden": "true", html: ICON.y }));
-    b.addEventListener("click", function () {
-      var before = JSON.stringify(st), ids = S.ids === "all" ? IDEAS.map(function (x) { return x.id; }) : S.ids;
-      IDEAS.forEach(function (i) { st[i.id] = ids.indexOf(i.id) >= 0 ? "y" : "n"; });
-      st._set = S.id; save(); paint();
-      notify("Набор «" + S.name + "»: " + ids.length + " " + plural(ids.length, "игра", "игры", "игр") + " отмечено «Хотим»", function () { st = JSON.parse(before); save(); paint(); });
-    });
-    setsEl.append(b);
-  });
-
-  // ——— переключатель названия: кнопка «Другое название» на первом экране ———
-  var ttlEl = $("ttl"), evTitle = $("evTitle"), tswb = $("tswb"), tlist = $("tlist"), topts = $("topts");
-  function showTitle(anim) {
+  // ——— название вечера: карусель со стрелками в первом экране, «Зафиксировать» закрепляет ———
+  var ttlEl = $("ttl"), evTitle = $("evTitle"), tcar = $("tcar"), tprev = $("tprev"), tnext = $("tnext"), tmeta = $("tmeta"), tfix = $("tfix"), tchg = $("tchg");
+  function showTitle(anim, dir) {
     var p = title.split(": "); // часть до двоеточия — короткое имя для шапки на телефоне
     ttlEl.textContent = p[0];
     if (p.length > 1) ttlEl.append(el("span", { class: "ttl-x" }, ": " + p.slice(1).join(": ")));
     evTitle.textContent = title; document.title = title + " · выбор игр 29.10";
+    evTitle.style.setProperty("--dir", dir < 0 ? "-1" : "1");
     if (anim && !reduced()) { evTitle.classList.remove("swap"); void evTitle.offsetWidth; evTitle.classList.add("swap"); }
   }
-  function setTitleOpen(open) { tlist.hidden = !open; tswb.setAttribute("aria-expanded", String(open)); }
-  TITLES.forEach(function (t, n) {
-    var r = el("input", { type: "radio", name: "evtitle", value: String(n), class: "sr" });
-    r.checked = t === title;
-    r.addEventListener("change", function () {
-      if (!r.checked) return;
-      title = t; keep(TKEY, t); showTitle(true); say("Название вечера: " + t);
-      if (sheetOn) fillSheet();
-    });
-    topts.append(el("label", { class: "topt" }, r, el("span", null, el("span", { class: "ico", "aria-hidden": "true", html: ICON.y }), t)));
+  function paintTitle() {
+    var one = TITLES.length < 2;
+    tcar.classList.toggle("fixed", tFixed || one);
+    [tprev, tnext].forEach(function (b) { b.hidden = tFixed || one; });
+    tfix.hidden = tFixed; tchg.hidden = !tFixed;
+    if (tFixed || one) tcar.removeAttribute("tabindex"); else tcar.setAttribute("tabindex", "0");
+    tmeta.innerHTML = tFixed ? "Название закреплено" : '<b class="num">' + (tIdx + 1) + "</b> из <b class=\"num\">" + TITLES.length + "</b> · предварительное название";
+    tmeta.hidden = one && !tFixed;
+  }
+  function stepTitle(d) {
+    if (tFixed || TITLES.length < 2) return;
+    tIdx = (tIdx + d + TITLES.length) % TITLES.length; title = TITLES[tIdx];
+    showTitle(true, d); paintTitle(); say("Название: " + title + ", " + (tIdx + 1) + " из " + TITLES.length);
+    if (sheetOn) fillSheet();
+  }
+  tprev.addEventListener("click", function () { stepTitle(-1); });
+  tnext.addEventListener("click", function () { stepTitle(1); });
+  tcar.addEventListener("keydown", function (e) {
+    if (e.altKey || e.ctrlKey || e.metaKey || e.shiftKey) return;
+    if (e.key === "ArrowLeft") { e.preventDefault(); stepTitle(-1); } else if (e.key === "ArrowRight") { e.preventDefault(); stepTitle(1); }
   });
-  tswb.addEventListener("click", function () { setTitleOpen(tlist.hidden); });
-  $("tdone").addEventListener("click", function () { setTitleOpen(false); tswb.focus(); });
-  tlist.addEventListener("keydown", function (e) { if (e.key === "Escape") { setTitleOpen(false); tswb.focus(); } });
-  showTitle(false);
+  // свайп пальцем: влево — следующее, вправо — предыдущее; короткий сдвиг и вертикальную прокрутку не считаем
+  var swipe = null;
+  tcar.addEventListener("pointerdown", function (e) { swipe = e.pointerType === "mouse" ? null : { x: e.clientX, y: e.clientY }; });
+  tcar.addEventListener("pointercancel", function () { swipe = null; });
+  tcar.addEventListener("pointerup", function (e) {
+    var s = swipe; swipe = null; if (!s) return;
+    var dx = e.clientX - s.x, dy = e.clientY - s.y;
+    if (Math.abs(dx) >= 40 && Math.abs(dx) > Math.abs(dy) * 1.5) stepTitle(dx < 0 ? 1 : -1);
+  });
+  tfix.addEventListener("click", function () {
+    tFixed = true; keep(TKEY, title); paintTitle(); tchg.focus();
+    say("Название вечера закреплено: " + title);
+    if (sheetOn) fillSheet();
+  });
+  tchg.addEventListener("click", function () {
+    tFixed = false; drop(TKEY); paintTitle(); tnext.focus();
+    say("Название снова можно менять");
+    if (sheetOn) fillSheet();
+  });
+  showTitle(false); paintTitle();
 
   // ——— отметка ———
   function mark(i, k) {
     var prev = st[i.id] || "", now = prev === k ? "" : k;
-    put(i.id, now); delete st._set; save(); paint(i.id);
+    put(i.id, now); save(); paint(i.id);
     var b = segEl[i.id].querySelector('[data-v="' + k + '"]'); if (b && now && !reduced()) { b.classList.remove("pop"); void b.offsetWidth; b.classList.add("pop"); }
-    notify(now ? "«" + i.title + "» — " + LAB[now] : "Отметка снята: «" + i.title + "»", function () { put(i.id, prev); delete st._set; save(); paint(i.id); });
+    notify(now ? "«" + i.title + "» — " + LAB[now] : "Отметка снята: «" + i.title + "»", function () { put(i.id, prev); save(); paint(i.id); });
   }
   function syncSeg(seg, v) {
     var idx = { y: 0, m: 1, n: 2 }, th = seg.firstElementChild, had = seg.dataset.set === "1";
@@ -307,9 +329,8 @@
       c.dataset.v = v; syncSeg(segEl[i.id], v);
       if (v) stateEl[i.id].innerHTML = '<span class="ico">' + ICON[v] + "</span>" + LAB[v]; // при снятии отметки метка плавно гаснет с прежним словом
     });
-    [].forEach.call(setsEl.children, function (b) { b.setAttribute("aria-pressed", st._set === b.dataset.id ? "true" : "false"); });
-    // полоска и кольцо — по выходам: сколько «Хотим» из выходов, которые помещаются в вечер; сами числа заказчику не называем
-    var t = totals(), fill = HOURS_OK && SLOTS ? Math.min(1, t.y / SLOTS) : 0;
+    // полоска и кольцо — по выходам: сколько «Хотим» из выходов, которые помещаются в вечер; при выборе сверх выходов полоска полная
+    var t = totals(), fill = CAPS ? Math.min(1, t.y / SLOTS) : 0;
     var prog = $("prog");
     prog.textContent = t.y + " " + plural(t.y, "игра", "игры", "игр");
     prog.setAttribute("aria-label", chosenText(t.y));
@@ -318,10 +339,11 @@
     lastMark = String(t.y);
     $("barfill").style.width = fill * 100 + "%";
     var num = function (n) { return '<b class="num">' + n + "</b>"; };
+    var over = CAPS && t.y > SLOTS;
     $("sum").innerHTML = t.done
-      ? (t.y ? "<span>" + plural(t.y, "Выбрана", "Выбрано", "Выбрано") + " " + num(t.y) + " " + plural(t.y, "игра", "игры", "игр") + "</span>" : "<span>«Хотим» пока не отмечено</span>")
-        + "<small>можно " + num(t.m) + " · не наше " + num(t.n) + "</small>"
-      : "<span>Пока ничего не отмечено</span><small>Выберите набор или игры</small>";
+      ? "<span>" + (CAPS ? capHead() + num(t.y) : plural(t.y, "Выбрана", "Выбрано", "Выбрано") + " " + num(t.y) + " " + plural(t.y, "игра", "игры", "игр")) + "</span>"
+        + "<small>" + (over ? overText(t.y) : "можно " + num(t.m) + " · не наше " + num(t.n)) + "</small>"
+      : "<span>" + (CAPS ? capHead() + num(0) : "Пока ничего не отмечено") + "</span><small>Отметьте игры</small>";
     groups.forEach(function (g) {
       var d = 0; g.items.forEach(function (i) { if (st[i.id]) d++; });
       scaleEl[g.slug].style.setProperty("--p", (d / g.items.length).toFixed(3));
@@ -350,13 +372,16 @@
     return a.length ? "Призы: выбрано " + a.map(function (p) { return lc(p.title); }).join(", ") + " (около " + rub(pzTotal(a)) + " из " + rub(BUDGET) + ")." : "Призы: пока не выбраны.";
   }
   function summary() {
-    var L = ["Игры для вечера: Газпром ПХГ, профсоюз, 29.10.2026, 47 человек.", "Название вечера: " + title, ""];
-    var y = wanted(), m = [], n = [], none = [];
+    var L = ["Игры для вечера: Газпром ПХГ, профсоюз, 29.10.2026, 47 человек.", "Название вечера: " + titleText(), ""];
+    var y = wanted(), m = [], n = [], none = [], cut = CAPS ? SLOTS : y.length;
     IDEAS.forEach(function (i) { var v = st[i.id] || ""; if (v !== "y") (v === "m" ? m : v === "n" ? n : none).push(i); });
-    if (y.length) { L.push("ХОТИМ (" + y.length + "), примерный порядок вечера:"); y.forEach(function (i, k) { L.push((k + 1) + ". " + i.title); }); L.push(""); }
+    if (y.length) {
+      L.push("ХОТИМ (" + y.length + "), примерный порядок вечера:"); y.slice(0, cut).forEach(function (i, k) { L.push((k + 1) + ". " + i.title); }); L.push("");
+      if (y.length > cut) { L.push("ПОД ЧЕРТОЙ, обсудим до финального сценария (" + (y.length - cut) + "):"); y.slice(cut).forEach(function (i) { L.push("• " + i.title); }); L.push(""); }
+    }
     function sec(t, a) { if (a.length) { L.push(t + " (" + a.length + "):"); a.forEach(function (i) { L.push("• " + i.title); }); L.push(""); } }
     sec("МОЖНО", m); sec("НЕ НАШЕ", n); sec("НЕ ОТМЕЧЕНО", none);
-    L.push(chosenText(y.length) + ".");
+    L.push(capLine(y.length));
     if (PRIZES.length) L.push("", prizeLine());
     return L.join("\n");
   }
@@ -391,16 +416,18 @@
     box.append(el("div", { class: "dg dg-t" }, el("span", { class: "dgl" }, "Не отмечено"), el("b", { class: "num" }, String(t.none))));
     // название, призы и сколько выбрано из рекомендованных (штамп в текст выбора не попадает)
     var pa = pzChosen();
-    $("xtitle").textContent = title;
+    $("xtitle").textContent = titleText();
     $("xprizerow").hidden = !PRIZES.length; $("topz").hidden = !PRIZES.length;
     $("xprize").textContent = pa.length ? pa.map(function (p) { return lc(p.title); }).join(", ") + " · около " + rub(pzTotal(pa)) : "пока не выбраны";
     $("topz").textContent = pa.length ? "Изменить призы" : "Выбрать призы";
     $("xpickrow").hidden = !PICKS.length;
     $("xpick").textContent = "выбрано " + PICKS.filter(function (i) { return st[i.id] === "y"; }).length + " из " + PICKS.length;
-    var y = wanted(), ol = $("order");
-    ol.innerHTML = ""; y.forEach(function (i) { ol.append(el("li", null, i.title)); });
+    var y = wanted(), ol = $("order"), bl = $("below"), cut = CAPS ? SLOTS : y.length;
+    ol.innerHTML = ""; y.slice(0, cut).forEach(function (i) { ol.append(el("li", null, i.title)); });
+    bl.innerHTML = ""; y.slice(cut).forEach(function (i) { bl.append(el("li", null, i.title)); });
+    bl.hidden = $("belowh").hidden = y.length <= cut;
     $("orderbox").hidden = !y.length;
-    $("ordhrs").textContent = chosenText(y.length) + ".";
+    $("ordhrs").textContent = capLine(y.length);
     $("pre").textContent = summary();
     $("emptyhint").hidden = t.done > 0;
   }
@@ -466,9 +493,9 @@
   if (ENDPOINT) { $("push").hidden = false; $("copy").classList.remove("main"); $("push").classList.add("main"); } else { $("push").hidden = true; }
   $("push").onclick = function () {
     if (sendS === "busy" || sendS === "ok") return;
-    var doc = [], mk = function (t, a, ord) { if (a.length) doc.push({ section: t, items: a.map(function (i, k) { return { q: i.title, a: ord ? "№ " + (k + 1) + " в порядке вечера" : t }; }) }); };
-    var y = wanted(), m = [], n = []; IDEAS.forEach(function (i) { var v = st[i.id] || ""; (v === "m" ? m : v === "n" ? n : []).push(i); });
-    doc.push({ section: "Название вечера", items: [{ q: title, a: "Название вечера" }] });
+    var y = wanted(), cut = CAPS ? SLOTS : y.length, m = [], n = []; IDEAS.forEach(function (i) { var v = st[i.id] || ""; (v === "m" ? m : v === "n" ? n : []).push(i); });
+    var doc = [], mk = function (t, a, ord) { if (a.length) doc.push({ section: t, items: a.map(function (i, k) { return { q: i.title, a: ord ? (k < cut ? "№ " + (k + 1) + " в порядке вечера" : "под чертой: обсудим до финального сценария") : t }; }) }); };
+    doc.push({ section: "Название вечера", items: [{ q: title, a: tFixed ? "Название вечера" : "Название вечера (предварительное)" }] });
     mk("Хотим", y, true); mk("Можно", m); mk("Не наше", n);
     var pa = pzChosen(); if (pa.length) doc.push({ section: "Призы", items: pa.map(function (p) { return { q: p.title, a: "около " + rub(p.price) }; }) });
     var payload = { app: "wedding-constructor", kind: "program", couple: "gazprom-phg-29-10", names: { b: "Газпром ПХГ, профсоюз, 29.10", g: "" }, answers: st, doc: doc, text: summary() };
@@ -508,5 +535,10 @@
   addEventListener("scroll", function () { if (!scrollTick) scrollTick = requestAnimationFrame(onScroll); }, { passive: true });
   var up = $("toTop"); if (up) up.addEventListener("click", function () { window.scrollTo({ top: 0, behavior: reduced() ? "auto" : "smooth" }); });
 
-  paint(); paintPz(); onScroll();
+  // нижняя строка может занять несколько строк: высота панели нужна отступу страницы, кнопке «Наверх» и уведомлению
+  var dockEl = $("dock");
+  function setDock() { document.documentElement.style.setProperty("--dock-h", Math.round(dockEl.getBoundingClientRect().height) + "px"); }
+  if (window.ResizeObserver) new ResizeObserver(setDock).observe(dockEl); addEventListener("resize", setDock);
+
+  paint(); paintPz(); setDock(); onScroll();
 })();
