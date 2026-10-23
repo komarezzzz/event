@@ -264,7 +264,7 @@
   var prepBlocks = [];
   if (!isNaN(DEADLINE)) {
     cdBig = el("p", { class: "cdbig", role: "timer" });
-    cdNote = el("p", { class: "cdnote" }, "Выбрать игры и призы можно до 26.10. Потом мы соберём порядок вечера.");
+    cdNote = el("p", { class: "cdnote" }, "Выбрать игры можно до 26.10. Потом мы соберём порядок вечера.");
     cdTg = el("a", { class: "tglink", href: "https://t.me/komarez", hidden: true }, "Telegram @komarez");
     cdBox = el("div", { class: "cd" }, el("p", { class: "cdk" }, "До срока выбора"), cdBig, cdNote, cdTg);
     prepBlocks.push(cdBox);
